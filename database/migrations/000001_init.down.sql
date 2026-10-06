@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS `profile_keys`;
+DROP TABLE IF EXISTS `sessions`;
+DROP TABLE IF EXISTS `tokens`;

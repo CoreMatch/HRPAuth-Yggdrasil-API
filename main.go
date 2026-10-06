@@ -63,8 +63,13 @@ func main() {
 	r.Use(CORSMiddleware())
 
 	yggdrasilCtrl := controllers.NewYggdrasilController()
+	registerCtrl := controllers.NewRegisterController()
+	internalCtrl := controllers.NewInternalController()
 
 	r.GET("/", yggdrasilCtrl.Meta)
+	r.POST("/register", registerCtrl.Register)
+	r.POST("/internal/sync-username", internalCtrl.SyncUsername)
+	r.POST("/internal/delete-account", internalCtrl.DeleteAccount)
 
 	auth := r.Group("/authserver")
 	{

@@ -20,34 +20,15 @@ type ConfigMigration struct {
 // configMigrations holds the version chain, ordered from oldest to newest.
 //
 // History:
-//   - "1.0": initial YAML config (memcache-based verification codes, no redis)
-//   - "2":   redis added, memcache renamed to verification_code
-//   - "3":   security fields (incl. captcha) moved from yggdrasil.security to
-//     top-level security, manage.token introduced
-//   - "4":   oauth2 section introduced for site-side OAuth2 authorization
-//   - "5":   yggdrasil.security.max_texture_file_size added (default 512000)
-//   - "6":   top-level storage section with orphan_file_expiry_days (default 7)
-//   - "7":   oauth2.super_client_extra_scopes added for database scope delegation
+//   - "1": initial decoupled Yggdrasil-API service config
 func configMigrations() []ConfigMigration {
 	return []ConfigMigration{
-		{FromVersion: "1.0", ToVersion: "2", Migrate: migrateV1ToV2},
-		{FromVersion: "2", ToVersion: "3", Migrate: migrateV2ToV3},
-		{FromVersion: "3", ToVersion: "4", Migrate: migrateV3ToV4},
-		{FromVersion: "4", ToVersion: "5", Migrate: migrateV4ToV5},
-		{FromVersion: "5", ToVersion: "6", Migrate: migrateV5ToV6},
-		{FromVersion: "6", ToVersion: "7", Migrate: migrateV6ToV7},
+		// New service, no migrations yet
 	}
 }
 
 // MigrateConfig upgrades cfg step by step until it reaches ConfigVersion.
 // It returns the migrated config and whether at least one migration ran.
-//
-// Behavior:
-//   - version equal to ConfigVersion: no-op, changed=false
-//   - version newer than ConfigVersion: warns and keeps the file untouched
-//     (changed=false) — an older program must not rewrite a newer config
-//   - version older than ConfigVersion: runs the chain; an error aborts with
-//     the original config left untouched
 func MigrateConfig(cfg map[string]interface{}, tokenGen func() string) (map[string]interface{}, bool, error) {
 	if tokenGen == nil {
 		tokenGen = func() string { return "" }
@@ -106,8 +87,7 @@ func findMigration(from string) (*ConfigMigration, bool) {
 	return nil, false
 }
 
-// VersionMajor extracts the leading integer of a version string, e.g. "1.0" -> 1,
-// "3" -> 3. Unknown or non-numeric versions yield 0.
+// VersionMajor extracts the leading integer of a version string.
 func VersionMajor(v string) int {
 	v = strings.TrimSpace(v)
 	i := 0
@@ -125,7 +105,6 @@ func VersionMajor(v string) int {
 }
 
 // BackupConfigFile copies path to path + ".bak." + version before migration.
-// An existing backup for the same version is preserved (not overwritten).
 func BackupConfigFile(path, version string) error {
 	backupPath := fmt.Sprintf("%s.bak.%s", path, version)
 	if _, err := os.Stat(backupPath); err == nil {
@@ -140,203 +119,5 @@ func BackupConfigFile(path, version string) error {
 		return fmt.Errorf("failed to write config backup %s: %w", backupPath, err)
 	}
 	log.Printf("Config backed up to %s", backupPath)
-	return nil
-}
-
-// migrateV1ToV2 migrates the initial config:
-//   - memcache section renamed to verification_code (code_ttl / storage_dir kept)
-//   - redis section added
-func migrateV1ToV2(cfg map[string]interface{}, tokenGen func() string) error {
-	if mem, ok := cfg["memcache"].(map[string]interface{}); ok {
-		vc := map[string]interface{}{}
-		if v, exists := mem["code_ttl"]; exists {
-			vc["code_ttl"] = v
-		}
-		if v, exists := mem["storage_dir"]; exists {
-			vc["storage_dir"] = v
-		}
-		cfg["verification_code"] = vc
-		delete(cfg, "memcache")
-	}
-	if _, ok := cfg["verification_code"].(map[string]interface{}); !ok {
-		cfg["verification_code"] = map[string]interface{}{
-			"code_ttl":    600,
-			"storage_dir": "./cache/verification_codes",
-		}
-	}
-	if _, ok := cfg["redis"].(map[string]interface{}); !ok {
-		cfg["redis"] = map[string]interface{}{
-			"host":     "127.0.0.1",
-			"port":     6379,
-			"password": "",
-			"db":       0,
-			"prefix":   "hrpauth_",
-		}
-	}
-	cfg["version"] = "2"
-	return nil
-}
-
-// migrateV2ToV3 migrates the v2 config:
-//   - password_cost / rate_limit_* / enable_captcha / captcha_ttl move from
-//     yggdrasil.security to the top-level security section (v3 schema)
-//   - manage.token introduced (generated when missing)
-//   - redis.prefix defaulted to "hrpauth_"
-func migrateV2ToV3(cfg map[string]interface{}, tokenGen func() string) error {
-	ygg, _ := cfg["yggdrasil"].(map[string]interface{})
-	var ySec map[string]interface{}
-	if ygg != nil {
-		ySec, _ = ygg["security"].(map[string]interface{})
-	}
-
-	topSec, _ := cfg["security"].(map[string]interface{})
-	if topSec == nil {
-		topSec = map[string]interface{}{}
-	}
-
-	// Fields that belong to the top-level HRPAuth security section in v3.
-	movedFields := []string{
-		"password_cost",
-		"rate_limit_max_attempts",
-		"rate_limit_window_sec",
-		"enable_captcha",
-		"captcha_ttl",
-	}
-	defaults := map[string]interface{}{
-		"password_cost":           10,
-		"rate_limit_max_attempts": 10,
-		"rate_limit_window_sec":   600,
-		"enable_captcha":          true,
-		"captcha_ttl":             300,
-	}
-	for _, key := range movedFields {
-		if _, exists := topSec[key]; exists {
-			continue
-		}
-		if ySec != nil {
-			if v, exists := ySec[key]; exists {
-				topSec[key] = v
-				delete(ySec, key)
-				continue
-			}
-		}
-		topSec[key] = defaults[key]
-	}
-	cfg["security"] = topSec
-
-	manage, _ := cfg["manage"].(map[string]interface{})
-	if manage == nil {
-		manage = map[string]interface{}{}
-	}
-	if token, _ := manage["token"].(string); token == "" {
-		manage["token"] = tokenGen()
-	}
-	cfg["manage"] = manage
-
-	if redisCfg, ok := cfg["redis"].(map[string]interface{}); ok {
-		if prefix, _ := redisCfg["prefix"].(string); prefix == "" {
-			redisCfg["prefix"] = "hrpauth_"
-		}
-	}
-
-	cfg["version"] = "3"
-	return nil
-}
-
-// migrateV3ToV4 introduces the site-side oauth2 section.
-// It creates:
-//   - a built-in confidential "super client" for low-friction service-to-service use
-//   - a built-in public client for WebUI authorization_code + PKCE
-func migrateV3ToV4(cfg map[string]interface{}, tokenGen func() string) error {
-	oauth2, _ := cfg["oauth2"].(map[string]interface{})
-	if oauth2 == nil {
-		oauth2 = map[string]interface{}{}
-	}
-
-	callback, _ := cfg["callback"].(map[string]interface{})
-	frontend, _ := cfg["frontend"].(map[string]interface{})
-
-	if issuer, _ := oauth2["issuer"].(string); issuer == "" {
-		if url, _ := callback["url"].(string); url != "" {
-			oauth2["issuer"] = url
-		}
-	}
-	if ttl, ok := oauth2["authorization_code_ttl_sec"]; !ok || ttl == 0 {
-		oauth2["authorization_code_ttl_sec"] = 300
-	}
-	if ttl, ok := oauth2["access_token_ttl_sec"]; !ok || ttl == 0 {
-		oauth2["access_token_ttl_sec"] = 3600
-	}
-	if ttl, ok := oauth2["refresh_token_ttl_sec"]; !ok || ttl == 0 {
-		oauth2["refresh_token_ttl_sec"] = 2592000
-	}
-	if clientID, _ := oauth2["super_client_id"].(string); clientID == "" {
-		oauth2["super_client_id"] = "hrpauth-internal-super"
-	}
-	if secret, _ := oauth2["super_client_secret"].(string); secret == "" {
-		oauth2["super_client_secret"] = tokenGen()
-	}
-	if clientID, _ := oauth2["public_client_id"].(string); clientID == "" {
-		oauth2["public_client_id"] = "hrpauth-webui"
-	}
-	if _, exists := oauth2["public_redirect_uris"]; !exists {
-		redirects := []string{}
-		if frontendURL, _ := frontend["url"].(string); frontendURL != "" {
-			redirects = append(redirects, strings.TrimRight(frontendURL, "/")+"/oauth/callback")
-		}
-		oauth2["public_redirect_uris"] = redirects
-	}
-
-	cfg["oauth2"] = oauth2
-	cfg["version"] = "4"
-	return nil
-}
-
-// migrateV4ToV5 adds max_texture_file_size to yggdrasil.security.
-func migrateV4ToV5(cfg map[string]interface{}, tokenGen func() string) error {
-	ygg, _ := cfg["yggdrasil"].(map[string]interface{})
-	if ygg == nil {
-		ygg = map[string]interface{}{}
-		cfg["yggdrasil"] = ygg
-	}
-	sec, _ := ygg["security"].(map[string]interface{})
-	if sec == nil {
-		sec = map[string]interface{}{}
-	}
-	if _, exists := sec["max_texture_file_size"]; !exists {
-		sec["max_texture_file_size"] = 512000
-	}
-	ygg["security"] = sec
-	cfg["version"] = "5"
-	return nil
-}
-
-// migrateV5ToV6 adds the top-level storage section with orphan_file_expiry_days.
-func migrateV5ToV6(cfg map[string]interface{}, tokenGen func() string) error {
-	storage, _ := cfg["storage"].(map[string]interface{})
-	if storage == nil {
-		storage = map[string]interface{}{}
-	}
-	if _, exists := storage["orphan_file_expiry_days"]; !exists {
-		storage["orphan_file_expiry_days"] = 7
-	}
-	cfg["storage"] = storage
-	cfg["version"] = "6"
-	return nil
-}
-
-// migrateV6ToV7 adds super_client_extra_scopes to the oauth2 section.
-// This allows administrators to grant additional scopes (e.g. db.*) to the
-// built-in super client without changing default behaviour.
-func migrateV6ToV7(cfg map[string]interface{}, tokenGen func() string) error {
-	oauth2, _ := cfg["oauth2"].(map[string]interface{})
-	if oauth2 == nil {
-		oauth2 = map[string]interface{}{}
-	}
-	if _, exists := oauth2["super_client_extra_scopes"]; !exists {
-		oauth2["super_client_extra_scopes"] = []interface{}{}
-	}
-	cfg["oauth2"] = oauth2
-	cfg["version"] = "7"
 	return nil
 }

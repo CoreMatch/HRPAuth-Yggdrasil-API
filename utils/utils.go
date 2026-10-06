@@ -122,3 +122,19 @@ func ParseUintString(raw string) (uint, bool) {
 func UintToString(value uint) string {
 	return strconv.FormatUint(uint64(value), 10)
 }
+
+func IsValidMojangUUID(s string) bool {
+	if len(s) != 32 {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
+func NormalizeMojangUUID(s string) string {
+	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(s), "-", ""))
+}

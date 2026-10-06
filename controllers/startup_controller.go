@@ -26,7 +26,7 @@ import (
 type StartupController struct{}
 
 const ConfigFileName = "config.yaml"
-const schemaMigrationService = "HA"
+const schemaMigrationService = "Yggdrasil-API"
 
 func NewStartupController() *StartupController {
 	return &StartupController{}

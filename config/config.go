@@ -128,11 +128,22 @@ func Load() {
 		log.Fatalf("Failed to read config file %s: %v", configPath, err)
 	}
 
+	// Parse YAML
 	var yamlConfig map[string]interface{}
 	if err := yaml.Unmarshal(data, &yamlConfig); err != nil {
 		log.Fatalf("Failed to parse config file: %v", err)
 	}
 
+	// Validate config version
+	configVersion := getString(yamlConfig, "version")
+	if configVersion == "" {
+		log.Fatalf("Config file is missing version field")
+	}
+	if configVersion != ConfigVersion {
+		log.Printf("Warning: Config file version %s does not match expected version %s", configVersion, ConfigVersion)
+	}
+
+	// Map YAML to Config struct
 	AppConfig = &Config{
 		Version:   getString(yamlConfig, "version"),
 		Site:      parseSiteConfig(yamlConfig),

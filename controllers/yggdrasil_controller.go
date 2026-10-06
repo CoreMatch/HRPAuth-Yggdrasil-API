@@ -151,8 +151,8 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 		return
 	}
 
-	user := yc.authService.VerifyCredentials(req.Username, req.Password)
-	if user == nil {
+	user, err := yc.authService.VerifyCredentials(req.Username, req.Password)
+	if err != nil || user == nil {
 		yc.authService.RecordLoginAttempt(req.Username, false)
 		sendYggdrasilError(c, "ForbiddenOperationException", "Invalid credentials.", http.StatusForbidden)
 		return
@@ -308,8 +308,8 @@ func (yc *YggdrasilController) Signout(c *gin.Context) {
 		return
 	}
 
-	user := yc.authService.VerifyCredentials(req.Username, req.Password)
-	if user == nil {
+	user, err := yc.authService.VerifyCredentials(req.Username, req.Password)
+	if err != nil || user == nil {
 		yc.authService.RecordLoginAttempt(req.Username, false)
 		sendYggdrasilError(c, "ForbiddenOperationException", "Invalid credentials.", http.StatusForbidden)
 		return

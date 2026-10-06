@@ -13,6 +13,7 @@ import (
 	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/redis"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/utils"
+	"gorm.io/gorm"
 )
 
 type AuthService struct {
@@ -31,27 +32,109 @@ type UserInfo struct {
 	Username string
 }
 
-func (as *AuthService) VerifyCredentials(identifier, password string) *UserInfo {
+func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo, error) {
 	user, err := as.coreClient.VerifyCredentials(identifier, password)
 	if err != nil {
-		return nil
-	}
-
-	// Ensure local Account exists (1:1 mapping)
-	var account models.Account
-	result := database.DB.Where("core_user_id = ?", user.UUID).First(&account)
-	if result.Error != nil {
-		account = models.Account{
-			CoreUserID: user.UUID,
-		}
-		database.DB.Create(&account)
+		return nil, err
 	}
 
 	return &UserInfo{
 		UUID:     user.UUID,
 		Email:    user.Email,
 		Username: user.Username,
+	}, nil
+}
+
+func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID string) (*models.Account, *models.Profile, error) {
+	user, err := as.coreClient.VerifyCredentials(identifier, password)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid core credentials: %v", err)
 	}
+
+	var account models.Account
+	err = database.DB.Where("core_user_id = ?", user.UUID).First(&account).Error
+	if err == nil {
+		return nil, nil, fmt.Errorf("game account already exists for this user")
+	}
+
+	// Validate and clean MojangUUID
+	var mUUIDPtr *string
+	if mojangUUID != "" {
+		mojangUUID = utils.NormalizeMojangUUID(mojangUUID)
+		if !utils.IsValidMojangUUID(mojangUUID) {
+			return nil, nil, fmt.Errorf("invalid mojang_uuid format")
+		}
+
+		var existingAccount models.Account
+		if err := database.DB.Where("mojang_uuid = ?", mojangUUID).First(&existingAccount).Error; err == nil {
+			return nil, nil, fmt.Errorf("mojang_uuid already bound to another account")
+		}
+		mUUIDPtr = &mojangUUID
+	}
+
+	// Check if the username is already taken by another profile
+	var existingProfile models.Profile
+	if err := database.DB.Where("name = ?", user.Username).First(&existingProfile).Error; err == nil {
+		return nil, nil, fmt.Errorf("profile name '%s' is already taken", user.Username)
+	}
+
+	// Create Account and default Profile in a transaction
+	var profile models.Profile
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		account = models.Account{
+			CoreUserID: user.UUID,
+			MojangUUID: mUUIDPtr,
+		}
+		if err := tx.Create(&account).Error; err != nil {
+			return err
+		}
+
+		profile = models.Profile{
+			ID:        utils.GenerateUnsignedUUID(),
+			AccountID: account.ID,
+			Name:      user.Username, // Inherit username from Core service
+			Model:     "default",
+		}
+		if err := tx.Create(&profile).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &account, &profile, nil
+}
+
+func (as *AuthService) SyncUsername(coreUserID, newUsername string) error {
+	var account models.Account
+	if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err != nil {
+		return nil // No game account to sync
+	}
+
+	// In 1:1 mapping, we assume the user has a default profile with the same name.
+	// We sync all profiles owned by this account that match the old core username?
+	// Actually, the requirement says "直接继承原主服务的 username", and sync is "自动同步".
+	// We'll update all profiles for this account to the new username if they were matching the old one?
+	// Or just update the "primary" profile. Let's update all for simplicity in 1:1.
+	
+	return database.DB.Model(&models.Profile{}).Where("account_id = ?", account.ID).Update("name", newUsername).Error
+}
+
+func (as *AuthService) DeleteAccount(coreUserID string) error {
+	var account models.Account
+	if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err != nil {
+		return nil // Already gone
+	}
+
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		// Cascade deletion is handled by DB constraints (ON DELETE CASCADE),
+		// but we can also manually delete for safety if needed.
+		// Profiles, Tokens, Sessions, ProfileKeys are all linked to Account.
+		return tx.Delete(&account).Error
+	})
 }
 
 type ProfileInfo struct {

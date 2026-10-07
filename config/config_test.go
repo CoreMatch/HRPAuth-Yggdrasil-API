@@ -1,63 +1,85 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
-func TestParseWebAuthnConfigNormalizesFallbackOrigins(t *testing.T) {
-	cfg := map[string]interface{}{
-		"site": map[string]interface{}{
-			"name": "HRPAuth",
+func TestParseServerConfigLoadsKeysAndDefaults(t *testing.T) {
+	dir := t.TempDir()
+	publicKeyPath := filepath.Join(dir, "public.pem")
+	privateKeyPath := filepath.Join(dir, "private.pem")
+
+	if err := os.WriteFile(publicKeyPath, []byte("PUBLIC"), 0644); err != nil {
+		t.Fatalf("failed to write public key fixture: %v", err)
+	}
+	if err := os.WriteFile(privateKeyPath, []byte("PRIVATE"), 0644); err != nil {
+		t.Fatalf("failed to write private key fixture: %v", err)
+	}
+
+	parsed := parseServerConfig(map[string]interface{}{
+		"server": map[string]interface{}{
+			"name":                       "HRPAuth",
+			"implementation":             "Ygg API",
+			"version":                    "1.0.0",
+			"signature_public_key_path":  publicKeyPath,
+			"signature_private_key_path": privateKeyPath,
+			"links": map[string]interface{}{
+				"homepage": "https://example.com",
+				"register": "https://example.com/register",
+			},
+			"skin_domains": []interface{}{"skins.example.com"},
 		},
-		"frontend": map[string]interface{}{
-			"url": "https://auth.example.com/app/",
-		},
-		"callback": map[string]interface{}{
-			"url": "https://api.example.com/v1/hrpauth?foo=bar",
-		},
-	}
+	})
 
-	parsed := parseWebAuthnConfig(cfg)
-
-	if parsed.RPID != "auth.example.com" {
-		t.Fatalf("expected derived rp_id auth.example.com, got %q", parsed.RPID)
+	if parsed.TexturesStorage != "./" {
+		t.Fatalf("expected default textures storage ./, got %q", parsed.TexturesStorage)
 	}
-
-	wantOrigins := []string{
-		"https://auth.example.com",
-		"https://api.example.com",
+	if parsed.SignaturePublicKey != "PUBLIC" {
+		t.Fatalf("expected public key file to be loaded, got %q", parsed.SignaturePublicKey)
 	}
-	if len(parsed.RPOrigins) != len(wantOrigins) {
-		t.Fatalf("expected %d origins, got %d (%v)", len(wantOrigins), len(parsed.RPOrigins), parsed.RPOrigins)
+	if parsed.SignaturePrivateKey != "PRIVATE" {
+		t.Fatalf("expected private key file to be loaded, got %q", parsed.SignaturePrivateKey)
 	}
-	for i, want := range wantOrigins {
-		if parsed.RPOrigins[i] != want {
-			t.Fatalf("expected origin %d to be %q, got %q", i, want, parsed.RPOrigins[i])
-		}
+	if len(parsed.SkinDomains) != 1 || parsed.SkinDomains[0] != "skins.example.com" {
+		t.Fatalf("expected skin domains to be parsed, got %v", parsed.SkinDomains)
+	}
+	if parsed.Links.Homepage != "https://example.com" || parsed.Links.Register != "https://example.com/register" {
+		t.Fatalf("expected links to be parsed, got %+v", parsed.Links)
 	}
 }
 
-func TestParseWebAuthnConfigNormalizesExplicitOrigins(t *testing.T) {
-	cfg := map[string]interface{}{
-		"webauthn": map[string]interface{}{
-			"rp_origins": []interface{}{
-				"https://auth.example.com/app",
-				"https://auth.example.com/",
-				"https://admin.example.com/settings?tab=security",
+func TestParseYggdrasilConfigReadsSecurityAndFeatureFlags(t *testing.T) {
+	parsed := parseYggdrasilConfig(map[string]interface{}{
+		"yggdrasil": map[string]interface{}{
+			"security": map[string]interface{}{
+				"token_expiry_days":      15,
+				"session_expiry_seconds": 28800,
+				"max_texture_width":      1024,
+				"max_texture_height":     512,
+				"max_texture_file_size":  524288,
+				"max_tokens_per_user":    7,
+			},
+			"feature_flags": map[string]interface{}{
+				"non_email_login":             true,
+				"legacy_skin_api":             true,
+				"no_mojang_namespace":         false,
+				"enable_mojang_anti_features": true,
+				"enable_profile_key":          true,
+				"username_check":              true,
+				"enable_ip_check":             false,
 			},
 		},
-	}
+	})
 
-	parsed := parseWebAuthnConfig(cfg)
-
-	wantOrigins := []string{
-		"https://auth.example.com",
-		"https://admin.example.com",
+	if parsed.Security.MaxTokensPerUser != 7 {
+		t.Fatalf("expected max_tokens_per_user 7, got %d", parsed.Security.MaxTokensPerUser)
 	}
-	if len(parsed.RPOrigins) != len(wantOrigins) {
-		t.Fatalf("expected %d origins, got %d (%v)", len(wantOrigins), len(parsed.RPOrigins), parsed.RPOrigins)
+	if parsed.Security.MaxTextureFileSize != 524288 {
+		t.Fatalf("expected max_texture_file_size 524288, got %d", parsed.Security.MaxTextureFileSize)
 	}
-	for i, want := range wantOrigins {
-		if parsed.RPOrigins[i] != want {
-			t.Fatalf("expected origin %d to be %q, got %q", i, want, parsed.RPOrigins[i])
-		}
+	if !parsed.FeatureFlags.EnableProfileKey || !parsed.FeatureFlags.NonEmailLogin || !parsed.FeatureFlags.EnableMojangAntiFeatures {
+		t.Fatalf("expected feature flags to be parsed, got %+v", parsed.FeatureFlags)
 	}
 }

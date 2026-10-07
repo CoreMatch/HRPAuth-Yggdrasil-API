@@ -60,8 +60,8 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"version":        "1.0.0",
 		},
 		"server": map[string]interface{}{
-			"port":        ":2778",
-			"cors_origin": "*",
+			"port":        ":2770",
+			"cors_origin": "",
 		},
 		"callback": map[string]interface{}{
 			"url": "http://localhost:2778",

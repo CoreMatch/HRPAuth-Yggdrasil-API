@@ -128,10 +128,23 @@ const ConfigVersion = "1" // New baseline version
 func init() {
 	// Try to get the directory of the executable
 	if exePath, err := os.Executable(); err == nil {
+		// Resolve symlinks to get the actual binary location
+		if resolvedPath, err := filepath.EvalSymlinks(exePath); err == nil {
+			exePath = resolvedPath
+		}
 		dir := filepath.Dir(exePath)
-		// If it's not a temporary directory (e.g. from 'go run'), use it
-		if !strings.Contains(dir, "go-build") && !strings.Contains(dir, "/tmp/") {
-			ConfigFileDir = dir
+
+		// Check if it's a temporary directory from 'go run'
+		// 'go run' binaries are typically in a path containing 'go-build' and 'exe'
+		// We only fallback to "./" if it looks like a temporary build artifact.
+		isGoRun := strings.Contains(dir, "go-build") && (strings.Contains(dir, "/exe") || strings.Contains(dir, "\\exe"))
+
+		if !isGoRun {
+			if absDir, err := filepath.Abs(dir); err == nil {
+				ConfigFileDir = absDir
+			} else {
+				ConfigFileDir = dir
+			}
 		}
 	}
 }

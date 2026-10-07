@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -28,7 +29,7 @@ func NewCoreClient() *CoreClient {
 }
 
 func (c *CoreClient) doRequest(method, path string, body interface{}, result interface{}) error {
-	var bodyReader *bytes.Buffer
+	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
 		if err != nil {

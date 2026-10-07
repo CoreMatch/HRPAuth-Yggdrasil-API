@@ -38,6 +38,7 @@ func NewStartupController() *StartupController {
 
 func (sc *StartupController) InitializeConfig() error {
 	configPath := filepath.Join(config.ConfigFileDir, config.ConfigFileName)
+	log.Printf("Initializing configuration. Looking for config at: %s", configPath)
 
 	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {

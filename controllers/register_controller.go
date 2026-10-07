@@ -27,35 +27,24 @@ type RegisterGameAccountRequest struct {
 func (rc *RegisterController) Register(c *gin.Context) {
 	var req RegisterGameAccountRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":        "InvalidRequest",
-			"errorMessage": "Invalid request body.",
-		})
+		respondError(c, http.StatusBadRequest, CodeInvalidJSONBody, "Invalid request body.")
 		return
 	}
 
 	if rc.authService.IsLoginRateLimited(req.Identifier) {
-		c.JSON(http.StatusTooManyRequests, gin.H{
-			"error":        "TooManyRequests",
-			"errorMessage": "Too many registration attempts. Please try again later.",
-		})
+		respondError(c, http.StatusTooManyRequests, CodeInternalError, "Too many registration attempts. Please try again later.")
 		return
 	}
 
 	account, profile, err := rc.authService.RegisterGameAccount(req.Identifier, req.Password, req.MojangUUID)
 	if err != nil {
 		rc.authService.RecordLoginAttempt(req.Identifier, false)
-		c.JSON(http.StatusForbidden, gin.H{
-			"error":        "RegistrationFailed",
-			"errorMessage": err.Error(),
-		})
+		respondError(c, http.StatusForbidden, CodeInvalidCredentials, err.Error())
 		return
 	}
 
 	rc.authService.RecordLoginAttempt(req.Identifier, true)
-	c.JSON(http.StatusOK, gin.H{
-		"success":    true,
-		"message":    "Game account registered successfully.",
+	respondOK(c, "Game account registered successfully.", gin.H{
 		"account_id": account.ID,
 		"profile": gin.H{
 			"id":   profile.ID,

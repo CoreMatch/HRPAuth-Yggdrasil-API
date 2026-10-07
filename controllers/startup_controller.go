@@ -11,11 +11,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
 	mysqldriver "github.com/golang-migrate/migrate/v4/database/mysql"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/lnb/HRPAuth-Yggdrasil-API/clients"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/database/migrations"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/utils"
@@ -68,6 +70,11 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 		},
 		"frontend": map[string]interface{}{
 			"url": "http://localhost:3000",
+		},
+		"microservice": map[string]interface{}{
+			"name":        "HRPAuth-Yggdrasil-API",
+			"ttl_seconds": 120,
+			"relay_url":   "http://localhost:2770",
 		},
 		"database": map[string]interface{}{
 			"host":     "127.0.0.1",
@@ -473,6 +480,53 @@ func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB) erro
 	if _, err := db.Exec("ALTER TABLE `schema_migrations` ADD PRIMARY KEY (`service`)"); err != nil {
 		return fmt.Errorf("failed to add schema_migrations primary key: %v", err)
 	}
+
+	return nil
+}
+
+func (sc *StartupController) RegisterService() error {
+	cfg := config.AppConfig.Microservice
+	if cfg.Name == "" {
+		log.Println("Microservice registration skipped: name not configured")
+		return nil
+	}
+
+	client := clients.NewCoreClient()
+
+	// 1. Register Presence
+	presenceReq := clients.PresenceRequest{
+		Name:          cfg.Name,
+		TTLSeconds:    cfg.TTLSeconds,
+		SecurityLevel: 1, // User level by default
+	}
+	if err := client.RegisterPresence(presenceReq); err != nil {
+		return fmt.Errorf("failed to register presence: %v", err)
+	}
+	log.Printf("Microservice presence registered: %s", cfg.Name)
+
+	// 2. Register Relay Rules
+	base := strings.TrimRight(cfg.RelayURL, "/")
+	relays := []clients.RelayRule{
+		{Dest: "/authserver", Source: base + "/authserver"},
+		{Dest: "/sessionserver", Source: base + "/sessionserver"},
+		{Dest: "/api/profiles/minecraft", Source: base + "/api/profiles/minecraft"},
+		{Dest: "/textures", Source: base + "/textures"},
+		{Dest: "/previews", Source: base + "/previews"},
+		{Dest: "/texture", Source: base + "/texture"},
+		{Dest: "/skin", Source: base + "/skin"},
+		{Dest: "/skins", Source: base + "/skins"},
+		{Dest: "/minecraftservices", Source: base + "/minecraftservices"},
+		{Dest: "/register", Source: base + "/register"},
+	}
+
+	relayReq := clients.RelayRequest{
+		Name:   cfg.Name,
+		Relays: relays,
+	}
+	if err := client.RegisterRelay(relayReq); err != nil {
+		return fmt.Errorf("failed to register relay rules: %v", err)
+	}
+	log.Printf("Microservice relay rules registered for %d paths", len(relays))
 
 	return nil
 }

@@ -122,6 +122,14 @@ func main() {
 		})
 	})
 
+	// Register with HRPAuth core in background
+	go func() {
+		time.Sleep(2 * time.Second) // Wait for server to start
+		if err := startupCtrl.RegisterService(); err != nil {
+			log.Printf("Warning: Microservice registration failed: %v", err)
+		}
+	}()
+
 	log.Printf("HRPAuth Yggdrasil API Provider listening on %s", config.AppConfig.Server.Port)
 	r.Run(config.AppConfig.Server.Port)
 }

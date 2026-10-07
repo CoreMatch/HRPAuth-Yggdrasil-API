@@ -161,7 +161,7 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 
 	yc.authService.RecordLoginAttempt(req.Username, true)
 
-        profiles := yc.authService.GetUserProfiles(user.AccountID)
+	profiles := yc.authService.GetUserProfiles(user.AccountID)
 	if len(profiles) == 0 {
 		sendYggdrasilError(c, "ForbiddenOperationException", "User has no profiles.", http.StatusForbidden)
 		return
@@ -176,7 +176,7 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 	selectedProfile := profiles[0]
 	expiresInDays := config.AppConfig.Yggdrasil.Security.TokenExpiryDays
 
-        if existing := yc.authService.GetValidTokenByClientToken(user.AccountID, clientToken); existing != nil {
+	if existing := yc.authService.GetValidTokenByClientToken(user.AccountID, clientToken); existing != nil {
 		for _, p := range profiles {
 			if p.ID == existing.SelectedProfileID {
 				selectedProfile = p
@@ -186,8 +186,8 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 		accessToken = existing.AccessToken
 		yc.authService.RefreshTokenExpiry(existing.AccessToken, expiresInDays)
 	} else {
-                yc.authService.MarkOtherClientTokensTemporarilyInvalid(user.AccountID, clientToken)
-                if !yc.authService.CreateToken(accessToken, clientToken, user.AccountID, selectedProfile.ID, expiresInDays) {
+		yc.authService.MarkOtherClientTokensTemporarilyInvalid(user.AccountID, clientToken)
+		if !yc.authService.CreateToken(accessToken, clientToken, user.AccountID, selectedProfile.ID, expiresInDays) {
 			sendYggdrasilError(c, "ForbiddenOperationException", "Failed to create session. Please try again.", http.StatusForbidden)
 			return
 		}
@@ -225,7 +225,7 @@ func (yc *YggdrasilController) Refresh(c *gin.Context) {
 		return
 	}
 
-        profiles := yc.authService.GetUserProfiles(token.AccountID)
+	profiles := yc.authService.GetUserProfiles(token.AccountID)
 	if len(profiles) == 0 {
 		sendYggdrasilError(c, "ForbiddenOperationException", "User has no profiles.", http.StatusForbidden)
 		return
@@ -236,7 +236,7 @@ func (yc *YggdrasilController) Refresh(c *gin.Context) {
 
 	selectedProfileID := token.SelectedProfileID
 	if req.SelectedProfile != nil {
-                if yc.authService.IsProfileOwnedByAccount(req.SelectedProfile.ID, token.AccountID) {
+		if yc.authService.IsProfileOwnedByAccount(req.SelectedProfile.ID, token.AccountID) {
 			selectedProfileID = req.SelectedProfile.ID
 		}
 	}
@@ -253,8 +253,8 @@ func (yc *YggdrasilController) Refresh(c *gin.Context) {
 	}
 
 	expiresInDays := config.AppConfig.Yggdrasil.Security.TokenExpiryDays
-        yc.authService.MarkOtherClientTokensTemporarilyInvalid(token.AccountID, req.ClientToken)
-        yc.authService.CreateToken(newAccessToken, req.ClientToken, token.AccountID, selectedProfile.ID, expiresInDays)
+	yc.authService.MarkOtherClientTokensTemporarilyInvalid(token.AccountID, req.ClientToken)
+	yc.authService.CreateToken(newAccessToken, req.ClientToken, token.AccountID, selectedProfile.ID, expiresInDays)
 
 	response := gin.H{
 		"accessToken":     newAccessToken,
@@ -317,7 +317,7 @@ func (yc *YggdrasilController) Signout(c *gin.Context) {
 	}
 
 	yc.authService.RecordLoginAttempt(req.Username, true)
-        yc.authService.InvalidateAllAccountTokens(user.AccountID)
+	yc.authService.InvalidateAllAccountTokens(user.AccountID)
 
 	c.Status(http.StatusNoContent)
 }
@@ -336,7 +336,7 @@ func (yc *YggdrasilController) Join(c *gin.Context) {
 	}
 
 	if req.SelectedProfile != token.SelectedProfileID {
-                if !yc.authService.IsProfileOwnedByAccount(req.SelectedProfile, token.AccountID) {
+		if !yc.authService.IsProfileOwnedByAccount(req.SelectedProfile, token.AccountID) {
 			sendYggdrasilError(c, "ForbiddenOperationException", "Invalid profile.", http.StatusForbidden)
 			return
 		}
@@ -456,7 +456,7 @@ type BatchProfileRequest struct {
 func (yc *YggdrasilController) BatchProfiles(c *gin.Context) {
 	var req BatchProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		sendYggdrasilError(c, "BadRequestException", "Bad request.", http.StatusBadRequest)
+		respondError(c, http.StatusBadRequest, CodeInvalidJSONBody, "Bad request.")
 		return
 	}
 
@@ -471,7 +471,7 @@ func (yc *YggdrasilController) BatchProfiles(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, result)
+	respondOK(c, "Batch profile query successful", result)
 }
 
 func (yc *YggdrasilController) PlayerCertificates(c *gin.Context) {
@@ -482,18 +482,28 @@ func (yc *YggdrasilController) PlayerCertificates(c *gin.Context) {
 
 	accessToken := parseYggdrasilBearerToken(c.GetHeader("Authorization"))
 	if accessToken == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"path":         "/minecraftservices/player/certificates",
+			"errorType":    "Unauthorized",
+			"error":        "Unauthorized",
+			"errorMessage": "Unauthorized",
+		})
 		return
 	}
 
 	token := yc.authService.ValidateToken(accessToken, "")
 	if token == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"path":         "/minecraftservices/player/certificates",
+			"errorType":    "Unauthorized",
+			"error":        "Unauthorized",
+			"errorMessage": "Unauthorized",
+		})
 		return
 	}
 
 	pkService := services.NewProfileKeyService()
-        issued, err := pkService.IssueOrRotate(token.AccountID, false)
+	issued, err := pkService.IssueOrRotate(token.AccountID, false)
 	if err != nil {
 		sendYggdrasilError(c, "InternalException", "Failed to issue profile key.", http.StatusInternalServerError)
 		return
@@ -510,13 +520,13 @@ func (yc *YggdrasilController) PublicKeys(c *gin.Context) {
 func (yc *YggdrasilController) DownloadTexture(c *gin.Context) {
 	hash := c.Param("hash")
 	if hash == "" {
-		sendYggdrasilError(c, "BadRequestException", "Bad request.", http.StatusBadRequest)
+		respondError(c, http.StatusBadRequest, CodeInvalidRequest, "Bad request.")
 		return
 	}
 
 	data, contentType, err := yc.textureService.GetTextureByHash(hash)
 	if err != nil {
-		sendYggdrasilError(c, "NotFoundException", "Texture not found.", http.StatusNotFound)
+		respondError(c, http.StatusNotFound, CodeTargetNotFound, "Texture not found.")
 		return
 	}
 
@@ -527,13 +537,13 @@ func (yc *YggdrasilController) DownloadTexture(c *gin.Context) {
 func (yc *YggdrasilController) DownloadPreview(c *gin.Context) {
 	fileName := c.Param("fileName")
 	if fileName == "" {
-		sendYggdrasilError(c, "BadRequestException", "Bad request.", http.StatusBadRequest)
+		respondError(c, http.StatusBadRequest, CodeInvalidRequest, "Bad request.")
 		return
 	}
 
 	data, contentType, err := yc.textureService.GetPreviewByFileName(fileName)
 	if err != nil {
-		sendYggdrasilError(c, "NotFoundException", "Preview not found.", http.StatusNotFound)
+		respondError(c, http.StatusNotFound, CodeTargetNotFound, "Preview not found.")
 		return
 	}
 
@@ -544,7 +554,7 @@ func (yc *YggdrasilController) DownloadPreview(c *gin.Context) {
 func (yc *YggdrasilController) UploadTexture(c *gin.Context) {
 	accessToken := parseYggdrasilBearerToken(c.GetHeader("Authorization"))
 	if accessToken == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondError(c, http.StatusUnauthorized, CodeOAuthLoginRequired, "Unauthorized")
 		return
 	}
 
@@ -557,31 +567,30 @@ func (yc *YggdrasilController) UploadTexture(c *gin.Context) {
 
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		respondError(c, http.StatusBadRequest, CodeTextureFileRequired, "file is required")
 		return
 	}
 
 	opened, err := file.Open()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open file"})
+		respondError(c, http.StatusInternalServerError, CodeInternalError, "failed to open file")
 		return
 	}
 	defer opened.Close()
 
 	fileData, err := io.ReadAll(opened)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+		respondError(c, http.StatusInternalServerError, CodeInternalError, "failed to read file")
 		return
 	}
 
 	warnings, err := yc.textureService.UploadTexture(accessToken, profileID, textureType, model, name, description, tags, fileData)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, http.StatusBadRequest, CodeTextureUploadFailed, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success":  true,
+	respondOK(c, "Texture uploaded successfully", gin.H{
 		"warnings": warnings,
 	})
 }
@@ -589,7 +598,7 @@ func (yc *YggdrasilController) UploadTexture(c *gin.Context) {
 func (yc *YggdrasilController) DeleteTexture(c *gin.Context) {
 	accessToken := parseYggdrasilBearerToken(c.GetHeader("Authorization"))
 	if accessToken == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondError(c, http.StatusUnauthorized, CodeOAuthLoginRequired, "Unauthorized")
 		return
 	}
 
@@ -598,22 +607,22 @@ func (yc *YggdrasilController) DeleteTexture(c *gin.Context) {
 
 	token := yc.authService.ValidateToken(accessToken, "")
 	if token == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		respondError(c, http.StatusUnauthorized, CodeOAuthLoginRequired, "Unauthorized")
 		return
 	}
 
-        if !yc.authService.IsProfileOwnedByAccount(profileID, token.AccountID) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+	if !yc.authService.IsProfileOwnedByAccount(profileID, token.AccountID) {
+		respondError(c, http.StatusForbidden, CodeProfileAccessDenied, "Forbidden")
 		return
 	}
 
 	// Logic to remove texture from profile property
 	if err := yc.textureService.RemoveProfileTexture(profileID, textureType); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, http.StatusInternalServerError, CodeTextureDeleteFailed, err.Error())
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	respondOK(c, "Texture deleted successfully", nil)
 }
 
 func (yc *YggdrasilController) LegacySkin(c *gin.Context) {

@@ -74,3 +74,34 @@ func (c *CoreClient) VerifyCredentials(identifier, password string) (*models.Use
 	}
 	return &user, nil
 }
+
+type PresenceRequest struct {
+	Name          string         `json:"name"`
+	TTLSeconds    int            `json:"ttl_seconds,omitempty"`
+	Scope         *PresenceScope `json:"scope,omitempty"`
+	SDKURL        string         `json:"sdk_url,omitempty"`
+	SecurityLevel int            `json:"security_level"`
+}
+
+type PresenceScope struct {
+	Name          string   `json:"name"`
+	FrontendAreas []string `json:"frontend_areas"`
+}
+
+func (c *CoreClient) RegisterPresence(req PresenceRequest) error {
+	return c.doRequest("POST", "/services/presence", req, nil)
+}
+
+type RelayRule struct {
+	Dest   string `json:"dest"`
+	Source string `json:"source"`
+}
+
+type RelayRequest struct {
+	Name   string      `json:"name"`
+	Relays []RelayRule `json:"relays"`
+}
+
+func (c *CoreClient) RegisterRelay(req RelayRequest) error {
+	return c.doRequest("POST", "/services/relay", req, nil)
+}

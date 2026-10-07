@@ -9,17 +9,24 @@ import (
 )
 
 type Config struct {
-	Version   string
-	Site      SiteConfig
-	Server    ServerRuntimeConfig
-	Database  DatabaseConfig
-	Redis     RedisConfig
-	Manage    ManageConfig
-	Yggdrasil YggdrasilConfig
-	CoreAPI   CoreAPIConfig
-	Security  SecurityConfig
-	Callback  CallbackConfig
-	Frontend  FrontendConfig
+	Version      string
+	Site         SiteConfig
+	Server       ServerRuntimeConfig
+	Database     DatabaseConfig
+	Redis        RedisConfig
+	Manage       ManageConfig
+	Yggdrasil    YggdrasilConfig
+	CoreAPI      CoreAPIConfig
+	Security     SecurityConfig
+	Callback     CallbackConfig
+	Frontend     FrontendConfig
+	Microservice MicroserviceConfig
+}
+
+type MicroserviceConfig struct {
+	Name       string
+	TTLSeconds int
+	RelayURL   string // The external URL of this service that HRPAuth can reach
 }
 
 type CallbackConfig struct {
@@ -145,17 +152,18 @@ func Load() {
 
 	// Map YAML to Config struct
 	AppConfig = &Config{
-		Version:   getString(yamlConfig, "version"),
-		Site:      parseSiteConfig(yamlConfig),
-		Server:    parseServerRuntimeConfig(yamlConfig),
-		Database:  parseDatabaseConfig(yamlConfig),
-		Redis:     parseRedisConfig(yamlConfig),
-		Manage:    parseManageConfig(yamlConfig),
-		Yggdrasil: parseYggdrasilConfig(yamlConfig),
-		CoreAPI:   parseCoreAPIConfig(yamlConfig),
-		Security:  parseSecurityConfig(yamlConfig),
-		Callback:  parseCallbackConfig(yamlConfig),
-		Frontend:  parseFrontendConfig(yamlConfig),
+		Version:      getString(yamlConfig, "version"),
+		Site:         parseSiteConfig(yamlConfig),
+		Server:       parseServerRuntimeConfig(yamlConfig),
+		Database:     parseDatabaseConfig(yamlConfig),
+		Redis:        parseRedisConfig(yamlConfig),
+		Manage:       parseManageConfig(yamlConfig),
+		Yggdrasil:    parseYggdrasilConfig(yamlConfig),
+		CoreAPI:      parseCoreAPIConfig(yamlConfig),
+		Security:     parseSecurityConfig(yamlConfig),
+		Callback:     parseCallbackConfig(yamlConfig),
+		Frontend:     parseFrontendConfig(yamlConfig),
+		Microservice: parseMicroserviceConfig(yamlConfig),
 	}
 
 	log.Println("Configuration loaded successfully")
@@ -343,6 +351,15 @@ func parseFrontendConfig(config map[string]interface{}) FrontendConfig {
 	frontend, _ := config["frontend"].(map[string]interface{})
 	return FrontendConfig{
 		URL: getString(frontend, "url"),
+	}
+}
+
+func parseMicroserviceConfig(config map[string]interface{}) MicroserviceConfig {
+	ms, _ := config["microservice"].(map[string]interface{})
+	return MicroserviceConfig{
+		Name:       getString(ms, "name"),
+		TTLSeconds: getInt(ms, "ttl_seconds"),
+		RelayURL:   getString(ms, "relay_url"),
 	}
 }
 

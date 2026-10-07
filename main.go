@@ -40,11 +40,16 @@ func CORSMiddleware() gin.HandlerFunc {
 }
 
 func main() {
+	// Initialize configuration (creates default if missing)
+	startupCtrl := controllers.NewStartupController()
+	if err := startupCtrl.InitializeConfig(); err != nil {
+		log.Fatalf("Failed to initialize config: %v", err)
+	}
+
 	config.Load()
 	database.Init()
 
 	// Initial migrations for Yggdrasil-specific tables
-	startupCtrl := controllers.NewStartupController()
 	if err := startupCtrl.EnsureMigrations(); err != nil {
 		log.Fatalf("Failed to ensure database migrations: %v", err)
 	}

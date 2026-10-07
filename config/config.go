@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/goccy/go-yaml"
 )
@@ -119,8 +120,21 @@ type FeatureFlagsConfig struct {
 }
 
 const ConfigFileName = "config.yaml"
-const ConfigFileDir = "./"
+
+var ConfigFileDir = "./"
+
 const ConfigVersion = "1" // New baseline version
+
+func init() {
+	// Try to get the directory of the executable
+	if exePath, err := os.Executable(); err == nil {
+		dir := filepath.Dir(exePath)
+		// If it's not a temporary directory (e.g. from 'go run'), use it
+		if !strings.Contains(dir, "go-build") && !strings.Contains(dir, "/tmp/") {
+			ConfigFileDir = dir
+		}
+	}
+}
 
 var AppConfig *Config
 

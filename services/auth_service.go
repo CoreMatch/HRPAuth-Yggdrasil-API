@@ -613,7 +613,3 @@ func (as *AuthService) GetProfileByName(name string) *models.Profile {
 	}
 	return &profile
 }
-
-func (as *AuthService) IsManageToken(token, authType string) bool {
-	return authType == "manage" && token != "" && config.AppConfig.Manage.Token != "" && token == config.AppConfig.Manage.Token
-}

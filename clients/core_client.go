@@ -105,3 +105,26 @@ type RelayRequest struct {
 func (c *CoreClient) RegisterRelay(req RelayRequest) error {
 	return c.doRequest("POST", "/services/relay", req, nil)
 }
+
+type CoreMetadata struct {
+	Site struct {
+		URL string `json:"url"`
+	} `json:"site"`
+	Yggdrasil struct {
+		Meta struct {
+			Links struct {
+				Homepage string `json:"homepage"`
+			} `json:"links"`
+		} `json:"meta"`
+	} `json:"yggdrasil"`
+}
+
+func (c *CoreClient) GetMetadata() (*CoreMetadata, error) {
+	var meta CoreMetadata
+	// HRPAuth Core's root endpoint / provides metadata
+	err := c.doRequest("GET", "/", nil, &meta)
+	if err != nil {
+		return nil, err
+	}
+	return &meta, nil
+}

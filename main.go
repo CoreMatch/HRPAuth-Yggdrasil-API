@@ -17,7 +17,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := config.AppConfig.Server.CORSOrigin
 		if origin == "" {
-			origin = strings.TrimRight(config.AppConfig.Frontend.URL, "/")
+			origin = strings.TrimRight(config.AppConfig.Runtime.FrontendURL, "/")
 		} else if origin == "*" {
 			reqOrigin := c.Request.Header.Get("Origin")
 			if reqOrigin != "" {
@@ -49,6 +49,11 @@ func main() {
 		log.Fatalf("Failed to ensure database migrations: %v", err)
 	}
 
+	// Fetch metadata from Core before starting server
+	if err := startupCtrl.FetchMetadata(); err != nil {
+		log.Printf("Warning: Failed to fetch metadata from Core at startup: %v. CORS and some metadata may be incorrect until successfully fetched.", err)
+	}
+
 	redis.Init()
 
 	// Background cleanup tasks
@@ -75,7 +80,7 @@ func main() {
 	r.POST("/internal/proxy-register", internalCtrl.ProxyRegister)
 	r.POST("/internal/claim-account", internalCtrl.ClaimAccount)
 	r.POST("/internal/delete-account", internalCtrl.DeleteAccount)
-        r.POST("/internal/invalidate-tokens", internalCtrl.InvalidateTokens)
+	r.POST("/internal/invalidate-tokens", internalCtrl.InvalidateTokens)
 
 	auth := r.Group("/authserver")
 	{

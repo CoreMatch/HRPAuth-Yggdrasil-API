@@ -85,7 +85,7 @@ func (yc *YggdrasilController) Meta(c *gin.Context) {
 		"message": "HRPAuth Yggdrasil API Provider is running.",
 		"site": gin.H{
 			"name":        config.AppConfig.Site.Name,
-			"url":         config.AppConfig.Callback.URL,
+			"url":         config.AppConfig.Runtime.SiteURL,
 			"version":     config.AppConfig.Site.Version,
 			"server_time": time.Now().Format("2006-01-02 15:04:05"),
 		},
@@ -95,7 +95,7 @@ func (yc *YggdrasilController) Meta(c *gin.Context) {
 
 func (yc *YggdrasilController) GetMetadata() gin.H {
 	cfg := config.AppConfig.Yggdrasil.Server
-	frontendURL := config.AppConfig.Frontend.URL
+	frontendURL := config.AppConfig.Runtime.FrontendURL
 
 	links := gin.H{
 		"homepage": cfg.Links.Homepage,
@@ -112,8 +112,8 @@ func (yc *YggdrasilController) GetMetadata() gin.H {
 	skinDomains := cfg.SkinDomains
 	if len(skinDomains) == 0 {
 		skinDomains = []string{
-			utils.ExtractDomain(config.AppConfig.Callback.URL),
-			"." + utils.ExtractDomain(config.AppConfig.Callback.URL),
+			utils.ExtractDomain(config.AppConfig.Runtime.SiteURL),
+			"." + utils.ExtractDomain(config.AppConfig.Runtime.SiteURL),
 		}
 	}
 

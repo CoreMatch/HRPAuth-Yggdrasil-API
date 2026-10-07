@@ -65,12 +65,6 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"port":        ":2770",
 			"cors_origin": "",
 		},
-		"callback": map[string]interface{}{
-			"url": "http://localhost:2778",
-		},
-		"frontend": map[string]interface{}{
-			"url": "http://localhost:3000",
-		},
 		"microservice": map[string]interface{}{
 			"name":        "HRPAuth-Yggdrasil-API",
 			"ttl_seconds": 120,
@@ -91,11 +85,8 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"prefix":   "hrpauth_ygg_",
 		},
 		"core_api": map[string]interface{}{
-			"base_url":     "http://localhost:8080",
+			"base_url":     "http://localhost:2778",
 			"internal_key": sc.generateManageToken(),
-		},
-		"manage": map[string]interface{}{
-			"token": sc.generateManageToken(),
 		},
 		"security": map[string]interface{}{
 			"rate_limit_max_attempts": 10,
@@ -481,6 +472,18 @@ func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB) erro
 		return fmt.Errorf("failed to add schema_migrations primary key: %v", err)
 	}
 
+	return nil
+}
+
+func (sc *StartupController) FetchMetadata() error {
+	client := clients.NewCoreClient()
+	meta, err := client.GetMetadata()
+	if err != nil {
+		return err
+	}
+	config.AppConfig.Runtime.SiteURL = meta.Site.URL
+	config.AppConfig.Runtime.FrontendURL = meta.Yggdrasil.Meta.Links.Homepage
+	log.Printf("Fetched runtime config: SiteURL=%s, FrontendURL=%s", config.AppConfig.Runtime.SiteURL, config.AppConfig.Runtime.FrontendURL)
 	return nil
 }
 

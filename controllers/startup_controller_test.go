@@ -67,14 +67,6 @@ func TestBuildDefaultConfigIncludesDecoupledDefaults(t *testing.T) {
 		t.Fatalf("expected default config version %s, got %v", config.ConfigVersion, cfg["version"])
 	}
 
-	manage, ok := cfg["manage"].(map[string]interface{})
-	if !ok {
-		t.Fatal("manage section missing from default config")
-	}
-	if token, _ := manage["token"].(string); len(token) != 64 {
-		t.Fatalf("expected generated manage token, got %q", token)
-	}
-
 	coreAPI, ok := cfg["core_api"].(map[string]interface{})
 	if !ok {
 		t.Fatal("core_api section missing from default config")

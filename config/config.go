@@ -14,27 +14,22 @@ type Config struct {
 	Server       ServerRuntimeConfig
 	Database     DatabaseConfig
 	Redis        RedisConfig
-	Manage       ManageConfig
 	Yggdrasil    YggdrasilConfig
 	CoreAPI      CoreAPIConfig
 	Security     SecurityConfig
-	Callback     CallbackConfig
-	Frontend     FrontendConfig
 	Microservice MicroserviceConfig
+
+	// Runtime populated from Core API
+	Runtime struct {
+		SiteURL     string
+		FrontendURL string
+	}
 }
 
 type MicroserviceConfig struct {
 	Name       string
 	TTLSeconds int
 	RelayURL   string // The external URL of this service that HRPAuth can reach
-}
-
-type CallbackConfig struct {
-	URL string
-}
-
-type FrontendConfig struct {
-	URL string
 }
 
 type SecurityConfig struct {
@@ -72,10 +67,6 @@ type RedisConfig struct {
 	Password string
 	DB       int
 	Prefix   string
-}
-
-type ManageConfig struct {
-	Token string
 }
 
 type YggdrasilConfig struct {
@@ -157,12 +148,9 @@ func Load() {
 		Server:       parseServerRuntimeConfig(yamlConfig),
 		Database:     parseDatabaseConfig(yamlConfig),
 		Redis:        parseRedisConfig(yamlConfig),
-		Manage:       parseManageConfig(yamlConfig),
 		Yggdrasil:    parseYggdrasilConfig(yamlConfig),
 		CoreAPI:      parseCoreAPIConfig(yamlConfig),
 		Security:     parseSecurityConfig(yamlConfig),
-		Callback:     parseCallbackConfig(yamlConfig),
-		Frontend:     parseFrontendConfig(yamlConfig),
 		Microservice: parseMicroserviceConfig(yamlConfig),
 	}
 
@@ -205,13 +193,6 @@ func parseRedisConfig(config map[string]interface{}) RedisConfig {
 		Password: getString(redis, "password"),
 		DB:       getInt(redis, "db"),
 		Prefix:   getString(redis, "prefix"),
-	}
-}
-
-func parseManageConfig(config map[string]interface{}) ManageConfig {
-	manage, _ := config["manage"].(map[string]interface{})
-	return ManageConfig{
-		Token: getString(manage, "token"),
 	}
 }
 
@@ -337,20 +318,6 @@ func parseSecurityConfig(config map[string]interface{}) SecurityConfig {
 	return SecurityConfig{
 		RateLimitMaxAttempts: getInt(security, "rate_limit_max_attempts"),
 		RateLimitWindowSec:   getInt(security, "rate_limit_window_sec"),
-	}
-}
-
-func parseCallbackConfig(config map[string]interface{}) CallbackConfig {
-	callback, _ := config["callback"].(map[string]interface{})
-	return CallbackConfig{
-		URL: getString(callback, "url"),
-	}
-}
-
-func parseFrontendConfig(config map[string]interface{}) FrontendConfig {
-	frontend, _ := config["frontend"].(map[string]interface{})
-	return FrontendConfig{
-		URL: getString(frontend, "url"),
 	}
 }
 

@@ -241,8 +241,10 @@ func parseRedisConfig(config map[string]interface{}) RedisConfig {
 func parseCoreAPIConfig(config map[string]interface{}) CoreAPIConfig {
 	core, _ := config["core_api"].(map[string]interface{})
 	return CoreAPIConfig{
-		BaseURL:     getString(core, "base_url"),
-		InternalKey: getString(core, "internal_key"),
+		BaseURL:      getString(core, "base_url"),
+		InternalKey:  getString(core, "internal_key"),
+		ClientID:     getString(core, "client_id"),
+		ClientSecret: getString(core, "client_secret"),
 	}
 }
 

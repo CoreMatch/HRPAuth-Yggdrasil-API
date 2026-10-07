@@ -75,6 +75,7 @@ func main() {
 	r.POST("/internal/proxy-register", internalCtrl.ProxyRegister)
 	r.POST("/internal/claim-account", internalCtrl.ClaimAccount)
 	r.POST("/internal/delete-account", internalCtrl.DeleteAccount)
+        r.POST("/internal/invalidate-tokens", internalCtrl.InvalidateTokens)
 
 	auth := r.Group("/authserver")
 	{

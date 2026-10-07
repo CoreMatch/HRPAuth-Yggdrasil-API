@@ -118,3 +118,26 @@ func (ic *InternalController) DeleteAccount(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
+
+func (ic *InternalController) InvalidateTokens(c *gin.Context) {
+        internalKey := c.GetHeader("X-Internal-Key")
+        if config.AppConfig.CoreAPI.InternalKey == "" || internalKey != config.AppConfig.CoreAPI.InternalKey {
+                c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid internal key"})
+                return
+        }
+
+        var req struct {
+                CoreUserID string `json:"core_user_id"`
+        }
+        if err := c.ShouldBindJSON(&req); err != nil {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+                return
+        }
+
+        if err := ic.authService.InvalidateCoreUserTokens(req.CoreUserID); err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"success": true})
+}

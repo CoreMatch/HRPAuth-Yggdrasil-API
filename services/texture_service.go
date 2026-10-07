@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -89,7 +88,7 @@ func (ts *TextureService) ValidateTexture(file io.Reader, textureType string, mo
 	}
 
 	reader := bytes.NewReader(data)
-	cfgImg, format, err := image.DecodeConfig(reader)
+        _, format, err := image.DecodeConfig(reader)
 	if err != nil {
 		return nil, fmt.Errorf("invalid image format: %v", err)
 	}
@@ -262,13 +261,8 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 		return nil, fmt.Errorf("invalid access token")
 	}
 
-	if !NewAuthService().IsProfileOwnedByUser(profileID, token.UserID) {
+        if !NewAuthService().IsProfileOwnedByAccount(profileID, token.AccountID) {
 		return nil, fmt.Errorf("profile not owned by user")
-	}
-
-	var account models.Account
-	if err := database.DB.Where("core_user_id = ?", token.UserID).First(&account).Error; err != nil {
-		return nil, fmt.Errorf("account not found")
 	}
 
 	validated, err := ts.ValidateTexture(bytes.NewReader(fileData), textureType, model)
@@ -303,7 +297,7 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 	}
 
 	// Save to texture library
-	if err := ts.UpsertTextureRecord(account.ID, textureType, hash, model, name, description, tags, validated.Width, validated.Height, previewFileName); err != nil {
+        if err := ts.UpsertTextureRecord(token.AccountID, textureType, hash, model, name, description, tags, validated.Width, validated.Height, previewFileName); err != nil {
 		log.Printf("Warning: failed to upsert texture record: %v", err)
 	}
 

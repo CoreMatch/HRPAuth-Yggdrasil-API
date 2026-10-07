@@ -161,7 +161,7 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 
 	yc.authService.RecordLoginAttempt(req.Username, true)
 
-	profiles := yc.authService.GetUserProfiles(user.UUID)
+        profiles := yc.authService.GetUserProfiles(user.AccountID)
 	if len(profiles) == 0 {
 		sendYggdrasilError(c, "ForbiddenOperationException", "User has no profiles.", http.StatusForbidden)
 		return
@@ -176,7 +176,7 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 	selectedProfile := profiles[0]
 	expiresInDays := config.AppConfig.Yggdrasil.Security.TokenExpiryDays
 
-	if existing := yc.authService.GetValidTokenByClientToken(user.UUID, clientToken); existing != nil {
+        if existing := yc.authService.GetValidTokenByClientToken(user.AccountID, clientToken); existing != nil {
 		for _, p := range profiles {
 			if p.ID == existing.SelectedProfileID {
 				selectedProfile = p
@@ -186,8 +186,8 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 		accessToken = existing.AccessToken
 		yc.authService.RefreshTokenExpiry(existing.AccessToken, expiresInDays)
 	} else {
-		yc.authService.MarkOtherClientTokensTemporarilyInvalid(user.UUID, clientToken)
-		if !yc.authService.CreateToken(accessToken, clientToken, user.UUID, selectedProfile.ID, expiresInDays) {
+                yc.authService.MarkOtherClientTokensTemporarilyInvalid(user.AccountID, clientToken)
+                if !yc.authService.CreateToken(accessToken, clientToken, user.AccountID, selectedProfile.ID, expiresInDays) {
 			sendYggdrasilError(c, "ForbiddenOperationException", "Failed to create session. Please try again.", http.StatusForbidden)
 			return
 		}
@@ -225,7 +225,7 @@ func (yc *YggdrasilController) Refresh(c *gin.Context) {
 		return
 	}
 
-	profiles := yc.authService.GetUserProfiles(token.UserID)
+        profiles := yc.authService.GetUserProfiles(token.AccountID)
 	if len(profiles) == 0 {
 		sendYggdrasilError(c, "ForbiddenOperationException", "User has no profiles.", http.StatusForbidden)
 		return
@@ -236,7 +236,7 @@ func (yc *YggdrasilController) Refresh(c *gin.Context) {
 
 	selectedProfileID := token.SelectedProfileID
 	if req.SelectedProfile != nil {
-		if yc.authService.IsProfileOwnedByUser(req.SelectedProfile.ID, token.UserID) {
+                if yc.authService.IsProfileOwnedByAccount(req.SelectedProfile.ID, token.AccountID) {
 			selectedProfileID = req.SelectedProfile.ID
 		}
 	}
@@ -253,8 +253,8 @@ func (yc *YggdrasilController) Refresh(c *gin.Context) {
 	}
 
 	expiresInDays := config.AppConfig.Yggdrasil.Security.TokenExpiryDays
-	yc.authService.MarkOtherClientTokensTemporarilyInvalid(token.UserID, req.ClientToken)
-	yc.authService.CreateToken(newAccessToken, req.ClientToken, token.UserID, selectedProfile.ID, expiresInDays)
+        yc.authService.MarkOtherClientTokensTemporarilyInvalid(token.AccountID, req.ClientToken)
+        yc.authService.CreateToken(newAccessToken, req.ClientToken, token.AccountID, selectedProfile.ID, expiresInDays)
 
 	response := gin.H{
 		"accessToken":     newAccessToken,
@@ -317,7 +317,7 @@ func (yc *YggdrasilController) Signout(c *gin.Context) {
 	}
 
 	yc.authService.RecordLoginAttempt(req.Username, true)
-	yc.authService.InvalidateAllUserTokens(user.UUID)
+        yc.authService.InvalidateAllAccountTokens(user.AccountID)
 
 	c.Status(http.StatusNoContent)
 }
@@ -336,7 +336,7 @@ func (yc *YggdrasilController) Join(c *gin.Context) {
 	}
 
 	if req.SelectedProfile != token.SelectedProfileID {
-		if !yc.authService.IsProfileOwnedByUser(req.SelectedProfile, token.UserID) {
+                if !yc.authService.IsProfileOwnedByAccount(req.SelectedProfile, token.AccountID) {
 			sendYggdrasilError(c, "ForbiddenOperationException", "Invalid profile.", http.StatusForbidden)
 			return
 		}
@@ -493,7 +493,7 @@ func (yc *YggdrasilController) PlayerCertificates(c *gin.Context) {
 	}
 
 	pkService := services.NewProfileKeyService()
-	issued, err := pkService.IssueOrRotate(token.UserID, false)
+        issued, err := pkService.IssueOrRotate(token.AccountID, false)
 	if err != nil {
 		sendYggdrasilError(c, "InternalException", "Failed to issue profile key.", http.StatusInternalServerError)
 		return
@@ -602,7 +602,7 @@ func (yc *YggdrasilController) DeleteTexture(c *gin.Context) {
 		return
 	}
 
-	if !yc.authService.IsProfileOwnedByUser(profileID, token.UserID) {
+        if !yc.authService.IsProfileOwnedByAccount(profileID, token.AccountID) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 		return
 	}

@@ -27,9 +27,10 @@ func NewAuthService() *AuthService {
 }
 
 type UserInfo struct {
-	UUID     string
-	Email    string
-	Username string
+        UUID      string
+        Email     string
+        Username  string
+        AccountID int
 }
 
 func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo, error) {
@@ -49,8 +50,9 @@ func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo
 						proxyUUID = *account.MojangUUID
 					}
 					return &UserInfo{
-						UUID:     proxyUUID,
-						Username: profile.Name,
+                                                UUID:      proxyUUID,
+                                                Username:  profile.Name,
+                                                AccountID: account.ID,
 					}, nil
 				}
 			}
@@ -63,14 +65,26 @@ func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo
 		return nil, err
 	}
 
-	// Update last_sign_at if it's a core-linked account
-	database.DB.Model(&models.Account{}).Where("core_user_id = ?", user.UUID).Update("last_sign_at", time.Now())
+        var linkedAccount models.Account
+        if err := database.DB.Where("core_user_id = ?", user.UUID).First(&linkedAccount).Error; err == nil {
+                linkedAccount.LastSignAt = ptrTime(time.Now())
+                database.DB.Model(&linkedAccount).Update("last_sign_at", linkedAccount.LastSignAt)
+        }
 
 	return &UserInfo{
-		UUID:     user.UUID,
-		Email:    user.Email,
-		Username: user.Username,
+                UUID:      user.UUID,
+                Email:     user.Email,
+                Username:  user.Username,
+                AccountID: linkedAccount.ID,
 	}, nil
+}
+
+func ptrString(s string) *string {
+        return &s
+}
+
+func ptrTime(t time.Time) *time.Time {
+        return &t
 }
 
 func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID string) (*models.Account, *models.Profile, error) {
@@ -110,7 +124,7 @@ func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID stri
 	var profile models.Profile
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
 		account = models.Account{
-			CoreUserID: user.UUID,
+                        CoreUserID: ptrString(user.UUID),
 			MojangUUID: mUUIDPtr,
 		}
 		if err := tx.Create(&account).Error; err != nil {
@@ -264,14 +278,12 @@ type ProfileInfo struct {
 	Model string `json:"model,omitempty"`
 }
 
-func (as *AuthService) GetUserProfiles(userUUID string) []ProfileInfo {
-	var account models.Account
-	if err := database.DB.Where("core_user_id = ?", userUUID).First(&account).Error; err != nil {
-		return nil
-	}
-
+func (as *AuthService) GetUserProfiles(accountID int) []ProfileInfo {
 	var profiles []models.Profile
-	if err := database.DB.Where("account_id = ?", account.ID).Find(&profiles).Error; err != nil {
+        if accountID == 0 {
+                return nil
+        }
+        if err := database.DB.Where("account_id = ?", accountID).Find(&profiles).Error; err != nil {
 		return nil
 	}
 
@@ -289,13 +301,13 @@ func (as *AuthService) GetUserProfiles(userUUID string) []ProfileInfo {
 	return result
 }
 
-func (as *AuthService) CreateToken(accessToken, clientToken, userID, profileID string, expiresInDays int) bool {
-	as.EnforceTokenLimit(userID)
+func (as *AuthService) CreateToken(accessToken, clientToken string, accountID int, profileID string, expiresInDays int) bool {
+        as.EnforceTokenLimit(accountID)
 
 	token := models.Token{
 		AccessToken:       accessToken,
 		ClientToken:       clientToken,
-		UserID:            userID,
+                AccountID:         accountID,
 		SelectedProfileID: profileID,
 		IssuedAt:          utils.CurrentTimestampMillis(),
 		ExpiresInDays:     expiresInDays,
@@ -305,7 +317,7 @@ func (as *AuthService) CreateToken(accessToken, clientToken, userID, profileID s
 	return result.Error == nil
 }
 
-func (as *AuthService) EnforceTokenLimit(userID string) int64 {
+func (as *AuthService) EnforceTokenLimit(accountID int) int64 {
 	limit := config.AppConfig.Yggdrasil.Security.MaxTokensPerUser
 	if limit <= 0 {
 		limit = 10
@@ -313,9 +325,9 @@ func (as *AuthService) EnforceTokenLimit(userID string) int64 {
 
 	var count int64
 	if err := database.DB.Model(&models.Token{}).
-		Where("user_id = ? AND state = ?", userID, "valid").
+                Where("account_id = ? AND state = ?", accountID, "valid").
 		Count(&count).Error; err != nil {
-		log.Printf("[token-limit] count failed for user=%s: %v", userID, err)
+                log.Printf("[token-limit] count failed for account=%d: %v", accountID, err)
 		return 0
 	}
 	if count < int64(limit) {
@@ -325,7 +337,7 @@ func (as *AuthService) EnforceTokenLimit(userID string) int64 {
 	toRevoke := count - int64(limit) + 1
 	var oldest []models.Token
 	if err := database.DB.
-		Where("user_id = ? AND state = ?", userID, "valid").
+                Where("account_id = ? AND state = ?", accountID, "valid").
 		Order("issued_at ASC").
 		Limit(int(toRevoke)).
 		Find(&oldest).Error; err != nil {
@@ -359,20 +371,34 @@ func (as *AuthService) InvalidateToken(accessToken string) bool {
 	return result.Error == nil
 }
 
-func (as *AuthService) InvalidateAllUserTokens(userID string) bool {
+func (as *AuthService) InvalidateAllAccountTokens(accountID int) bool {
 	result := database.DB.Model(&models.Token{}).
-		Where("user_id = ? AND state = ?", userID, "valid").
+                Where("account_id = ? AND state = ?", accountID, "valid").
 		Update("state", "invalid")
 	return result.Error == nil
 }
 
-func (as *AuthService) GetValidTokenByClientToken(userID, clientToken string) *models.Token {
+func (as *AuthService) InvalidateCoreUserTokens(coreUserID string) error {
+        var account models.Account
+        if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err != nil {
+                if err == gorm.ErrRecordNotFound {
+                        return nil
+                }
+                return err
+        }
+        if !as.InvalidateAllAccountTokens(account.ID) {
+                return fmt.Errorf("failed to invalidate account tokens")
+        }
+        return nil
+}
+
+func (as *AuthService) GetValidTokenByClientToken(accountID int, clientToken string) *models.Token {
 	if clientToken == "" {
 		return nil
 	}
 	var token models.Token
-	result := database.DB.Where("user_id = ? AND client_token = ? AND state = ?",
-		userID, clientToken, "valid").First(&token)
+        result := database.DB.Where("account_id = ? AND client_token = ? AND state = ?",
+                accountID, clientToken, "valid").First(&token)
 	if result.Error != nil {
 		return nil
 	}
@@ -439,9 +465,9 @@ func (as *AuthService) RefreshTokenExpiry(accessToken string, expiresInDays int)
 	return result.Error == nil
 }
 
-func (as *AuthService) MarkOtherClientTokensTemporarilyInvalid(userID, currentClientToken string) int64 {
+func (as *AuthService) MarkOtherClientTokensTemporarilyInvalid(accountID int, currentClientToken string) int64 {
 	result := database.DB.Model(&models.Token{}).
-		Where("user_id = ? AND client_token != ? AND state = ?", userID, currentClientToken, "valid").
+                Where("account_id = ? AND client_token != ? AND state = ?", accountID, currentClientToken, "valid").
 		Update("state", "temporarily_invalid")
 	if result.Error != nil {
 		return 0
@@ -473,14 +499,13 @@ func (as *AuthService) GetProfileByID(profileID string) *ProfileInfo {
 	}
 }
 
-func (as *AuthService) IsProfileOwnedByUser(profileID, userID string) bool {
-	var account models.Account
-	if err := database.DB.Where("core_user_id = ?", userID).First(&account).Error; err != nil {
+func (as *AuthService) IsProfileOwnedByAccount(profileID string, accountID int) bool {
+        if accountID == 0 {
 		return false
 	}
 
 	var profile models.Profile
-	if err := database.DB.Where("id = ? AND account_id = ?", profileID, account.ID).First(&profile).Error; err != nil {
+        if err := database.DB.Where("id = ? AND account_id = ?", profileID, accountID).First(&profile).Error; err != nil {
 		return false
 	}
 	return true

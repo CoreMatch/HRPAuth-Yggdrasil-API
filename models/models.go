@@ -10,7 +10,7 @@ type Token struct {
 	ID                int       `gorm:"primaryKey;autoIncrement;column:id"`
 	AccessToken       string    `gorm:"type:varchar(255);uniqueIndex;column:access_token"`
 	ClientToken       string    `gorm:"type:varchar(255);index:idx_tokens_client_token;column:client_token"`
-	UserID            string    `gorm:"type:varchar(32);column:user_id;index"`
+        AccountID         int       `gorm:"column:account_id;index"`
 	SelectedProfileID string    `gorm:"type:varchar(32);column:selected_profile_id;index"`
 	IssuedAt          int64     `gorm:"type:bigint(20);column:issued_at"`
 	ExpiresInDays     int       `gorm:"default:15;column:expires_in_days"`
@@ -42,7 +42,7 @@ func (Session) TableName() string {
 // Moved from core to Yggdrasil API provider.
 type ProfileKey struct {
 	ID                 int       `gorm:"primaryKey;autoIncrement;column:id"`
-	UserID             string    `gorm:"type:varchar(32);column:user_id;uniqueIndex:uk_profile_keys_user_id"`
+        AccountID          int       `gorm:"column:account_id;uniqueIndex:uk_profile_keys_account_id"`
 	PublicKey          string    `gorm:"type:text;column:public_key"`
 	PrivateKey         string    `gorm:"type:text;column:private_key"`
 	PublicKeySignature string    `gorm:"type:text;column:public_key_signature"`

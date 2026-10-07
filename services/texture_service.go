@@ -290,6 +290,9 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 
 	// Update profile active texture
 	callbackURL := config.AppConfig.Callback.URL
+	if callbackURL == "" {
+		callbackURL = config.AppConfig.Runtime.SiteURL
+	}
 	textureURL := strings.TrimRight(callbackURL, "/") + "/textures/" + hash
 
 	if err := ts.UpdateProfileTexture(profileID, textureType, textureURL, model); err != nil {

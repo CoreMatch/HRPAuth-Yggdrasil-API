@@ -67,6 +67,9 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"port":        ":2770",
 			"cors_origin": "",
 		},
+		"callback": map[string]interface{}{
+			"url": "http://localhost:2770",
+		},
 		"microservice": map[string]interface{}{
 			"name":        "HRPAuth-Yggdrasil-API",
 			"ttl_seconds": 120,

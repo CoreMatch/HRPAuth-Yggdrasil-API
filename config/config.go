@@ -18,12 +18,17 @@ type Config struct {
 	CoreAPI      CoreAPIConfig
 	Security     SecurityConfig
 	Microservice MicroserviceConfig
+	Callback     CallbackConfig
 
 	// Runtime populated from Core API
 	Runtime struct {
 		SiteURL     string
 		FrontendURL string
 	}
+}
+
+type CallbackConfig struct {
+	URL string
 }
 
 type MicroserviceConfig struct {
@@ -153,9 +158,17 @@ func Load() {
 		CoreAPI:      parseCoreAPIConfig(yamlConfig),
 		Security:     parseSecurityConfig(yamlConfig),
 		Microservice: parseMicroserviceConfig(yamlConfig),
+		Callback:     parseCallbackConfig(yamlConfig),
 	}
 
 	log.Println("Configuration loaded successfully")
+}
+
+func parseCallbackConfig(config map[string]interface{}) CallbackConfig {
+	callback, _ := config["callback"].(map[string]interface{})
+	return CallbackConfig{
+		URL: getString(callback, "url"),
+	}
 }
 
 func parseSiteConfig(config map[string]interface{}) SiteConfig {

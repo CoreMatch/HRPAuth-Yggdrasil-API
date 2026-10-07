@@ -1,15 +1,19 @@
 package controllers
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"database/sql"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,8 +96,10 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"prefix":   "hrpauth_ygg_",
 		},
 		"core_api": map[string]interface{}{
-			"base_url":     "http://localhost:2778",
-			"internal_key": sc.generateManageToken(),
+			"base_url":      "http://localhost:2778",
+			"internal_key":  sc.generateManageToken(),
+			"client_id":     "",
+			"client_secret": "",
 		},
 		"security": map[string]interface{}{
 			"rate_limit_max_attempts": 10,
@@ -537,11 +543,22 @@ func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB, pref
 }
 
 func (sc *StartupController) FetchMetadata() error {
-	client := clients.NewCoreClient()
-	meta, err := client.GetMetadata()
+	coreAPIClient := utils.GetCoreAPIClient()
+	if coreAPIClient == nil {
+		log.Println("Metadata fetch skipped: CoreAPI client not configured")
+		return nil
+	}
+
+	client, err := coreAPIClient.GetClient(context.Background())
 	if err != nil {
+		return fmt.Errorf("failed to get CoreAPI client: %v", err)
+	}
+
+	var meta clients.CoreMetadata
+	if err := sc.doJSONRequest(client, "GET", config.AppConfig.CoreAPI.BaseURL+"/", nil, &meta); err != nil {
 		return err
 	}
+
 	config.AppConfig.Runtime.SiteURL = meta.Site.URL
 	config.AppConfig.Runtime.FrontendURL = meta.Yggdrasil.Meta.Links.Homepage
 	log.Printf("Fetched runtime config: SiteURL=%s, FrontendURL=%s", config.AppConfig.Runtime.SiteURL, config.AppConfig.Runtime.FrontendURL)
@@ -555,15 +572,25 @@ func (sc *StartupController) RegisterService() error {
 		return nil
 	}
 
-	client := clients.NewCoreClient()
+	coreAPIClient := utils.GetCoreAPIClient()
+	if coreAPIClient == nil {
+		log.Println("Microservice registration skipped: CoreAPI client not configured")
+		return nil
+	}
+
+	client, err := coreAPIClient.GetClient(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to get CoreAPI client: %v", err)
+	}
 
 	// 1. Register Presence
 	presenceReq := clients.PresenceRequest{
 		Name:          cfg.Name,
 		TTLSeconds:    cfg.TTLSeconds,
-		SecurityLevel: 1, // User level by default
+		SecurityLevel: 2, // Level 2 for service registration
 	}
-	if err := client.RegisterPresence(presenceReq); err != nil {
+
+	if err := sc.doJSONRequest(client, "POST", config.AppConfig.CoreAPI.BaseURL+"/services/presence", presenceReq, nil); err != nil {
 		return fmt.Errorf("failed to register presence: %v", err)
 	}
 	log.Printf("Microservice presence registered: %s", cfg.Name)
@@ -587,10 +614,43 @@ func (sc *StartupController) RegisterService() error {
 		Name:   cfg.Name,
 		Relays: relays,
 	}
-	if err := client.RegisterRelay(relayReq); err != nil {
+	if err := sc.doJSONRequest(client, "POST", config.AppConfig.CoreAPI.BaseURL+"/services/relay", relayReq, nil); err != nil {
 		return fmt.Errorf("failed to register relay rules: %v", err)
 	}
 	log.Printf("Microservice relay rules registered for %d paths", len(relays))
+
+	return nil
+}
+
+func (sc *StartupController) doJSONRequest(client *http.Client, method, url string, body, result interface{}) error {
+	var bodyReader io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		bodyReader = bytes.NewBuffer(jsonBody)
+	}
+
+	req, err := http.NewRequest(method, url, bodyReader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("API returned status %d", resp.StatusCode)
+	}
+
+	if result != nil {
+		return json.NewDecoder(resp.Body).Decode(result)
+	}
 
 	return nil
 }

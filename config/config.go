@@ -44,8 +44,10 @@ type SecurityConfig struct {
 }
 
 type CoreAPIConfig struct {
-	BaseURL     string
-	InternalKey string
+	BaseURL      string
+	InternalKey  string
+	ClientID     string
+	ClientSecret string
 }
 
 type ServerRuntimeConfig struct {

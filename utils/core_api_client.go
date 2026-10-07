@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lnb-dev/HRPAuth-Yggdrasil-API/config"
+	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
@@ -68,10 +68,5 @@ func (c *CoreAPIClient) GetClient(ctx context.Context) (*http.Client, error) {
 		return http.DefaultClient, nil // Return default client if not configured
 	}
 
-	token, err := c.GetToken(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.config.Client(ctx, token), nil
+	return c.config.Client(ctx), nil
 }

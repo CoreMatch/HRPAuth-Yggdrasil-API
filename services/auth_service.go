@@ -33,10 +33,38 @@ type UserInfo struct {
 }
 
 func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo, error) {
+	// 1. Try local proxy accounts first
+	var account models.Account
+	// Search by profile name first
+	var profile models.Profile
+	if err := database.DB.Where("name = ?", identifier).First(&profile).Error; err == nil {
+		if err := database.DB.Where("id = ?", profile.AccountID).First(&account).Error; err == nil {
+			if account.CBH == false && account.Password != "" {
+				if utils.CheckPasswordHash(password, account.Password) {
+					database.DB.Model(&account).Update("last_sign_at", time.Now())
+					// Proxy account doesn't have email/UUID until claimed?
+					// Use a generated internal UUID for proxy users
+					proxyUUID := "proxy-" + strconv.Itoa(account.ID)
+					if account.MojangUUID != nil {
+						proxyUUID = *account.MojangUUID
+					}
+					return &UserInfo{
+						UUID:     proxyUUID,
+						Username: profile.Name,
+					}, nil
+				}
+			}
+		}
+	}
+
+	// 2. Try Core auth
 	user, err := as.coreClient.VerifyCredentials(identifier, password)
 	if err != nil {
 		return nil, err
 	}
+
+	// Update last_sign_at if it's a core-linked account
+	database.DB.Model(&models.Account{}).Where("core_user_id = ?", user.UUID).Update("last_sign_at", time.Now())
 
 	return &UserInfo{
 		UUID:     user.UUID,
@@ -108,6 +136,72 @@ func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID stri
 	return &account, &profile, nil
 }
 
+func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*models.Account, *models.Profile, error) {
+	mojangUUID = utils.NormalizeMojangUUID(mojangUUID)
+	if !utils.IsValidMojangUUID(mojangUUID) {
+		return nil, nil, fmt.Errorf("invalid mojang_uuid format")
+	}
+
+	var account models.Account
+	err := database.DB.Where("mojang_uuid = ?", mojangUUID).First(&account).Error
+	if err == nil {
+		// Idempotent: return existing
+		var profile models.Profile
+		database.DB.Where("account_id = ?", account.ID).First(&profile)
+		return &account, &profile, nil
+	}
+
+	// Check if username taken
+	var existingProfile models.Profile
+	if err := database.DB.Where("name = ?", username).First(&existingProfile).Error; err == nil {
+		return nil, nil, fmt.Errorf("profile name '%s' already taken", username)
+	}
+
+	hash, err := utils.HashPassword(password)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var profile models.Profile
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		account = models.Account{
+			MojangUUID: &mojangUUID,
+			Password:   hash,
+			CBH:        false, // Proxy registration
+			RegisterAt: time.Now(),
+		}
+		if err := tx.Create(&account).Error; err != nil {
+			return err
+		}
+
+		profile = models.Profile{
+			ID:        utils.GenerateUnsignedUUID(),
+			AccountID: account.ID,
+			Name:      username,
+			Model:     "default",
+		}
+		if err := tx.Create(&profile).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return &account, &profile, err
+}
+
+func (as *AuthService) ClaimAccount(mojangUUID, coreUserID string) error {
+	mojangUUID = utils.NormalizeMojangUUID(mojangUUID)
+	var account models.Account
+	if err := database.DB.Where("mojang_uuid = ? AND cbh = 0", mojangUUID).First(&account).Error; err != nil {
+		return fmt.Errorf("proxy account not found for claiming")
+	}
+
+	return database.DB.Model(&account).Updates(map[string]interface{}{
+		"core_user_id": coreUserID,
+		"cbh":          true, // Now claimed by human
+	}).Error
+}
+
 func (as *AuthService) SyncUsername(coreUserID, newUsername string) error {
 	var account models.Account
 	if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err != nil {
@@ -119,7 +213,7 @@ func (as *AuthService) SyncUsername(coreUserID, newUsername string) error {
 	// Actually, the requirement says "直接继承原主服务的 username", and sync is "自动同步".
 	// We'll update all profiles for this account to the new username if they were matching the old one?
 	// Or just update the "primary" profile. Let's update all for simplicity in 1:1.
-	
+
 	return database.DB.Model(&models.Profile{}).Where("account_id = ?", account.ID).Update("name", newUsername).Error
 }
 
@@ -135,6 +229,33 @@ func (as *AuthService) DeleteAccount(coreUserID string) error {
 		// Profiles, Tokens, Sessions, ProfileKeys are all linked to Account.
 		return tx.Delete(&account).Error
 	})
+}
+
+// CleanupInactiveBotUsers removes accounts with cbh=0 that haven't signed in for 30 days.
+func (as *AuthService) CleanupInactiveBotUsers() int {
+	cutoff := time.Now().Add(-30 * 24 * time.Hour)
+
+	var candidates []models.Account
+	// Find accounts with cbh=0, and either no sign-in or sign-in > 30 days ago.
+	// We also check created_at for users who never signed in.
+	if err := database.DB.Where("cbh = 0 AND created_at < ? AND (last_sign_at IS NULL OR last_sign_at < ?)",
+		cutoff, cutoff).Find(&candidates).Error; err != nil {
+		log.Printf("[cleanup] failed to query candidates: %v", err)
+		return 0
+	}
+
+	deleted := 0
+	for _, a := range candidates {
+		if err := database.DB.Delete(&a).Error; err != nil {
+			log.Printf("[cleanup] ERROR deleting account id=%d: %v", a.ID, err)
+			continue
+		}
+		deleted++
+	}
+	if len(candidates) > 0 {
+		log.Printf("[cleanup] scanned %d proxy accounts, deleted %d", len(candidates), deleted)
+	}
+	return deleted
 }
 
 type ProfileInfo struct {

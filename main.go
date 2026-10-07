@@ -58,6 +58,9 @@ func main() {
 	sessionCleanupCtrl := controllers.NewSessionCleanupController()
 	sessionCleanupCtrl.Start(24 * time.Hour)
 
+	botCleanupCtrl := controllers.NewBotUserCleanupController()
+	botCleanupCtrl.Start(24 * time.Hour)
+
 	r := gin.Default()
 
 	r.Use(CORSMiddleware())
@@ -69,6 +72,8 @@ func main() {
 	r.GET("/", yggdrasilCtrl.Meta)
 	r.POST("/register", registerCtrl.Register)
 	r.POST("/internal/sync-username", internalCtrl.SyncUsername)
+	r.POST("/internal/proxy-register", internalCtrl.ProxyRegister)
+	r.POST("/internal/claim-account", internalCtrl.ClaimAccount)
 	r.POST("/internal/delete-account", internalCtrl.DeleteAccount)
 
 	auth := r.Group("/authserver")

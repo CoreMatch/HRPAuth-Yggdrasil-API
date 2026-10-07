@@ -61,12 +61,15 @@ func (ProfileKey) TableName() string {
 // Account represents a Minecraft account linked to a core user.
 // This establishes the 1:1 mapping between general auth and game auth.
 type Account struct {
-	ID         int       `gorm:"primaryKey;autoIncrement;column:id"`
-	CoreUserID string    `gorm:"type:varchar(32);uniqueIndex;column:core_user_id"`
+	ID         int        `gorm:"primaryKey;autoIncrement;column:id"`
+	CoreUserID *string    `gorm:"type:varchar(32);uniqueIndex;column:core_user_id"`
 	MojangUUID *string    `gorm:"type:varchar(32);column:mojang_uuid;uniqueIndex:uk_accounts_mojang_uuid"`
-	MBE        bool      `gorm:"type:tinyint(1);not null;default:0;column:mbe"`
-	CreatedAt  time.Time `gorm:"column:created_at"`
-	UpdatedAt  time.Time `gorm:"column:updated_at"`
+	Password   string     `gorm:"type:varchar(255);column:password"` // Only for proxy accounts
+	MBE        bool       `gorm:"type:tinyint(1);not null;default:0;column:mbe"`
+	CBH        bool       `gorm:"type:tinyint(1);not null;default:1;column:cbh"` // 1 = Human, 0 = Proxy/Bot
+	RegisterAt time.Time  `gorm:"column:created_at"`
+	LastSignAt *time.Time `gorm:"column:last_sign_at"`
+	UpdatedAt  time.Time  `gorm:"column:updated_at"`
 }
 
 func (Account) TableName() string {

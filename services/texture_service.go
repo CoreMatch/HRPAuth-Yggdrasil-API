@@ -9,10 +9,13 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/png"
 	"io"
@@ -21,7 +24,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/HugoSmits86/nativewebp"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/database"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
@@ -33,6 +38,14 @@ type TextureService struct{}
 func NewTextureService() *TextureService {
 	return &TextureService{}
 }
+
+const (
+	previewScale        = 8
+	maxTextureNameLen   = 20
+	defaultSkinModel    = "default"
+	texturesSubDir      = "textures"
+	previewsSubDir      = "previews"
+)
 
 type TextureInfo struct {
 	URL      string                 `json:"url"`
@@ -48,6 +61,8 @@ type TexturesPayload struct {
 
 type TextureValidationResult struct {
 	Data     []byte
+	Width    int
+	Height   int
 	Notices  []string
 	Warnings []string
 }
@@ -83,43 +98,45 @@ func (ts *TextureService) ValidateTexture(file io.Reader, textureType string, mo
 		return nil, fmt.Errorf("texture must be PNG format")
 	}
 
-	width := cfgImg.Width
-	height := cfgImg.Height
-
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode texture: %v", err)
 	}
 
 	bounds := img.Bounds()
-	actualWidth := bounds.Dx()
-	actualHeight := bounds.Dy()
+	width := bounds.Dx()
+	height := bounds.Dy()
 
-	result := &TextureValidationResult{}
+	result := &TextureValidationResult{
+		Width:  width,
+		Height: height,
+	}
 
 	switch textureType {
 	case "skin":
-		if !isValidSkinSize(actualWidth, actualHeight) {
-			if isProportional(actualWidth, actualHeight) {
+		if !isValidSkinSize(width, height) {
+			if isProportional(width, height) {
 				result.Notices = append(result.Notices,
-					fmt.Sprintf("skin size %dx%d exceeds standard size, but has a valid aspect ratio", actualWidth, actualHeight))
+					fmt.Sprintf("skin size %dx%d exceeds standard size, but has a valid aspect ratio", width, height))
 			} else {
 				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("skin size %dx%d does not match standard proportions", actualWidth, actualHeight))
+					fmt.Sprintf("skin size %dx%d does not match standard proportions", width, height))
 			}
 		}
 	case "cape":
-		if !isValidCapeSize(actualWidth, actualHeight) {
-			if isProportional(actualWidth, actualHeight) {
+		if !isValidCapeSize(width, height) {
+			if isProportional(width, height) {
 				result.Notices = append(result.Notices,
-					fmt.Sprintf("cape size %dx%d exceeds standard size, but has a valid aspect ratio", actualWidth, actualHeight))
+					fmt.Sprintf("cape size %dx%d exceeds standard size, but has a valid aspect ratio", width, height))
 			} else {
 				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("cape size %dx%d does not match standard proportions", actualWidth, actualHeight))
+					fmt.Sprintf("cape size %dx%d does not match standard proportions", width, height))
 			}
 		}
-		if actualWidth == 22 && actualHeight == 17 {
+		if width == 22 && height == 17 {
 			img = resizeCapeToStandard(img)
+			result.Width = 64
+			result.Height = 32
 		}
 	default:
 		return nil, fmt.Errorf("invalid texture type: %s", textureType)
@@ -173,10 +190,10 @@ func (ts *TextureService) CalculateHash(data []byte) string {
 func (ts *TextureService) SaveTexture(data []byte, hash string) error {
 	storageDir := config.AppConfig.Yggdrasil.Server.TexturesStorage
 	if storageDir == "" {
-		storageDir = "./"
+		storageDir = "./storage"
 	}
 
-	texturesDir := filepath.Join(storageDir, "textures")
+	texturesDir := filepath.Join(storageDir, texturesSubDir)
 	if err := os.MkdirAll(texturesDir, 0755); err != nil {
 		return fmt.Errorf("failed to create textures directory: %v", err)
 	}
@@ -185,15 +202,43 @@ func (ts *TextureService) SaveTexture(data []byte, hash string) error {
 	return os.WriteFile(filePath, data, 0644)
 }
 
+func (ts *TextureService) SavePreview(data []byte, fileName string) error {
+	storageDir := config.AppConfig.Yggdrasil.Server.TexturesStorage
+	if storageDir == "" {
+		storageDir = "./storage"
+	}
+
+	previewsDir := filepath.Join(storageDir, previewsSubDir)
+	if err := os.MkdirAll(previewsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create previews directory: %v", err)
+	}
+
+	filePath := filepath.Join(previewsDir, fileName)
+	return os.WriteFile(filePath, data, 0644)
+}
+
 func (ts *TextureService) DeleteTexture(hash string) error {
 	storageDir := config.AppConfig.Yggdrasil.Server.TexturesStorage
 	if storageDir == "" {
-		storageDir = "./"
+		storageDir = "./storage"
 	}
 
-	filePath := filepath.Join(storageDir, "textures", hash)
+	filePath := filepath.Join(storageDir, texturesSubDir, hash)
 	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete texture file: %v", err)
+	}
+	return nil
+}
+
+func (ts *TextureService) DeletePreview(fileName string) error {
+	storageDir := config.AppConfig.Yggdrasil.Server.TexturesStorage
+	if storageDir == "" {
+		storageDir = "./storage"
+	}
+
+	filePath := filepath.Join(storageDir, previewsSubDir, fileName)
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete preview file: %v", err)
 	}
 	return nil
 }
@@ -201,17 +246,17 @@ func (ts *TextureService) DeleteTexture(hash string) error {
 func (ts *TextureService) GetTexturePath(hash string) (string, error) {
 	storageDir := config.AppConfig.Yggdrasil.Server.TexturesStorage
 	if storageDir == "" {
-		storageDir = "./"
+		storageDir = "./storage"
 	}
 
-	filePath := filepath.Join(storageDir, "textures", hash)
+	filePath := filepath.Join(storageDir, texturesSubDir, hash)
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return "", fmt.Errorf("texture not found")
 	}
 	return filePath, nil
 }
 
-func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, model string, fileData []byte) ([]string, error) {
+func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, model, name, description, tags string, fileData []byte) ([]string, error) {
 	token := NewAuthService().ValidateToken(accessToken, "")
 	if token == nil {
 		return nil, fmt.Errorf("invalid access token")
@@ -221,7 +266,12 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 		return nil, fmt.Errorf("profile not owned by user")
 	}
 
-	validated, err := ts.ValidateTexture(strings.NewReader(string(fileData)), textureType, model)
+	var account models.Account
+	if err := database.DB.Where("core_user_id = ?", token.UserID).First(&account).Error; err != nil {
+		return nil, fmt.Errorf("account not found")
+	}
+
+	validated, err := ts.ValidateTexture(bytes.NewReader(fileData), textureType, model)
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +282,19 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 		return nil, err
 	}
 
+	// Generate and save preview
+	previewData, err := ts.GeneratePreviewImage(validated.Data, textureType, model)
+	previewFileName := ""
+	if err == nil {
+		previewFileName = hash + "_" + textureType + ".webp"
+		if err := ts.SavePreview(previewData, previewFileName); err != nil {
+			log.Printf("Warning: failed to save texture preview: %v", err)
+		}
+	} else {
+		log.Printf("Warning: failed to generate texture preview: %v", err)
+	}
+
+	// Update profile active texture
 	callbackURL := config.AppConfig.Callback.URL
 	textureURL := strings.TrimRight(callbackURL, "/") + "/textures/" + hash
 
@@ -239,8 +302,77 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 		return nil, err
 	}
 
+	// Save to texture library
+	if err := ts.UpsertTextureRecord(account.ID, textureType, hash, model, name, description, tags, validated.Width, validated.Height, previewFileName); err != nil {
+		log.Printf("Warning: failed to upsert texture record: %v", err)
+	}
+
 	warnings := append(validated.Notices, validated.Warnings...)
 	return warnings, nil
+}
+
+func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, model, name, description, tags string, width, height int, previewFile string) error {
+	normalizedTags := ts.NormalizeTags(tags)
+	normalizedName := ts.NormalizeTextureName(strings.TrimSpace(name), maxTextureNameLen)
+	if normalizedName == "" {
+		normalizedName = hash[:8]
+	}
+
+	switch textureType {
+	case "skin":
+		var existing models.TextureListSkin
+		err := database.DB.Where("account_id = ? AND hash = ?", accountID, hash).First(&existing).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			newSkin := models.TextureListSkin{
+				TextureListSkinBase: models.TextureListSkinBase{
+					Hash:        hash,
+					AccountID:   accountID,
+					Model:       model,
+					Width:       width,
+					Height:      height,
+					PreviewFile: previewFile,
+					Name:        normalizedName,
+					Description: description,
+					Tags:        normalizedTags,
+				},
+			}
+			return database.DB.Create(&newSkin).Error
+		} else if err == nil {
+			return database.DB.Model(&existing).Updates(map[string]interface{}{
+				"model":        model,
+				"previewfile":  previewFile,
+				"name":         normalizedName,
+				"description":  description,
+				"tags":         normalizedTags,
+			}).Error
+		}
+		return err
+	case "cape":
+		var existing models.TextureListCape
+		err := database.DB.Where("account_id = ? AND hash = ?", accountID, hash).First(&existing).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			newCape := models.TextureListCape{
+				Hash:        hash,
+				AccountID:   accountID,
+				Width:       width,
+				Height:      height,
+				PreviewFile: previewFile,
+				Name:        normalizedName,
+				Description: description,
+				Tags:        normalizedTags,
+			}
+			return database.DB.Create(&newCape).Error
+		} else if err == nil {
+			return database.DB.Model(&existing).Updates(map[string]interface{}{
+				"previewfile":  previewFile,
+				"name":         normalizedName,
+				"description":  description,
+				"tags":         normalizedTags,
+			}).Error
+		}
+		return err
+	}
+	return fmt.Errorf("invalid texture type: %s", textureType)
 }
 
 func (ts *TextureService) UpdateProfileTexture(profileID, textureType, textureURL, model string) error {
@@ -279,6 +411,42 @@ func (ts *TextureService) UpdateProfileTexture(profileID, textureType, textureUR
 		}
 		return nil
 	})
+}
+
+func (ts *TextureService) RemoveProfileTexture(profileID, textureType string) error {
+	var existingProp models.ProfileProperty
+	if err := database.DB.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").First(&existingProp).Error; err != nil {
+		return fmt.Errorf("textures property not found")
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(existingProp.Value)
+	if err != nil {
+		return fmt.Errorf("failed to decode textures property")
+	}
+
+	var payload TexturesPayload
+	if err := json.Unmarshal(decoded, &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal textures payload")
+	}
+
+	delete(payload.Textures, strings.ToUpper(textureType))
+
+	if len(payload.Textures) == 0 {
+		// If no textures left, mark property for deletion
+		return database.DB.Model(&existingProp).Update("delete_when", time.Now().Unix()).Error
+	}
+
+	newData, _ := json.Marshal(payload)
+	newValue := base64.StdEncoding.EncodeToString(newData)
+	newSignature, err := ts.SignTextureValue(newValue)
+	if err != nil {
+		return err
+	}
+
+	return database.DB.Model(&existingProp).Updates(map[string]interface{}{
+		"value":     newValue,
+		"signature": newSignature,
+	}).Error
 }
 
 func (ts *TextureService) createTombstoneValue(prop *models.ProfileProperty, textureType string) string {
@@ -498,4 +666,191 @@ func (ts *TextureService) CleanupOrphanedTextures() int {
 	}
 
 	return deleted
+}
+
+func (ts *TextureService) GetTextureByHash(hash string) ([]byte, string, error) {
+	path, err := ts.GetTexturePath(hash)
+	if err != nil {
+		return nil, "", err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+	return data, "image/png", nil
+}
+
+func (ts *TextureService) GetPreviewByFileName(fileName string) ([]byte, string, error) {
+	storageDir := config.AppConfig.Yggdrasil.Server.TexturesStorage
+	if storageDir == "" {
+		storageDir = "./storage"
+	}
+	path := filepath.Join(storageDir, previewsSubDir, fileName)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+	return data, "image/webp", nil
+}
+
+func (ts *TextureService) GetTextures(profileID string) (map[string]TextureInfo, error) {
+	var prop models.ProfileProperty
+	if err := database.DB.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").First(&prop).Error; err != nil {
+		return nil, err
+	}
+	decoded, _ := base64.StdEncoding.DecodeString(prop.Value)
+	var payload TexturesPayload
+	if err := json.Unmarshal(decoded, &payload); err != nil {
+		return nil, err
+	}
+	return payload.Textures, nil
+}
+
+func (ts *TextureService) GeneratePreviewImage(fileData []byte, textureType, model string) ([]byte, error) {
+	img, err := png.Decode(bytes.NewReader(fileData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode texture: %v", err)
+	}
+
+	var preview image.Image
+	switch textureType {
+	case "skin":
+		preview = ts.renderSkinPreview(img, model == "slim")
+	case "cape":
+		preview = ts.renderCapePreview(img)
+	default:
+		return nil, fmt.Errorf("invalid texture type: %s", textureType)
+	}
+
+	var buf bytes.Buffer
+	if err := nativewebp.Encode(&buf, preview, &nativewebp.Options{
+		CompressionLevel: nativewebp.BestCompression,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to encode webp: %v", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (ts *TextureService) renderSkinPreview(src image.Image, slim bool) image.Image {
+	armWidth := 4
+	if slim {
+		armWidth = 3
+	}
+
+	canvasWidth := 8 + (armWidth * 2)
+	base := image.NewNRGBA(image.Rect(0, 0, canvasWidth, 32))
+	draw.Draw(base, base.Bounds(), image.Transparent, image.Point{}, draw.Src)
+
+	torsoX := armWidth
+	headX := torsoX
+	leftArmX := 0
+	rightArmX := torsoX + 8
+	leftLegX := torsoX
+	rightLegX := torsoX + 4
+
+	// Head
+	ts.drawPart(base, src, image.Rect(8, 8, 16, 16), image.Pt(headX, 0))
+	ts.overlayPart(base, src, image.Rect(40, 8, 48, 16), image.Pt(headX, 0))
+
+	// Torso
+	ts.drawPart(base, src, image.Rect(20, 20, 28, 32), image.Pt(torsoX, 8))
+	ts.overlayPart(base, src, image.Rect(20, 36, 28, 48), image.Pt(torsoX, 8))
+
+	// Arms
+	armFront := image.Rect(44, 20, 44+armWidth, 32)
+	armOverlay := image.Rect(44, 36, 44+armWidth, 48)
+	ts.drawPart(base, src, armFront, image.Pt(leftArmX, 8))
+	ts.drawPart(base, src, armFront, image.Pt(rightArmX, 8))
+	ts.overlayPart(base, src, armOverlay, image.Pt(leftArmX, 8))
+	ts.overlayPart(base, src, armOverlay, image.Pt(rightArmX, 8))
+
+	// Legs
+	legFront := image.Rect(4, 20, 8, 32)
+	legOverlay := image.Rect(4, 36, 8, 48)
+	ts.drawPart(base, src, legFront, image.Pt(leftLegX, 20))
+	ts.drawPart(base, src, legFront, image.Pt(rightLegX, 20))
+	ts.overlayPart(base, src, legOverlay, image.Pt(leftLegX, 20))
+	ts.overlayPart(base, src, legOverlay, image.Pt(rightLegX, 20))
+
+	return ts.scaleNearest(base, previewScale)
+}
+
+func (ts *TextureService) renderCapePreview(src image.Image) image.Image {
+	base := image.NewNRGBA(image.Rect(0, 0, 10, 16))
+	draw.Draw(base, base.Bounds(), image.Transparent, image.Point{}, draw.Src)
+	ts.drawPart(base, src, image.Rect(1, 1, 11, 17), image.Point{})
+	return ts.scaleNearest(base, previewScale)
+}
+
+func (ts *TextureService) drawPart(dst draw.Image, src image.Image, srcRect image.Rectangle, dstMin image.Point) {
+	draw.Draw(dst, image.Rectangle{Min: dstMin, Max: dstMin.Add(srcRect.Size())}, src, srcRect.Min, draw.Src)
+}
+
+func (ts *TextureService) overlayPart(dst draw.Image, src image.Image, srcRect image.Rectangle, dstMin image.Point) {
+	bounds := src.Bounds()
+	if srcRect.Min.X >= bounds.Min.X && srcRect.Min.Y >= bounds.Min.Y &&
+		srcRect.Max.X <= bounds.Max.X && srcRect.Max.Y <= bounds.Max.Y {
+		draw.Draw(dst, image.Rectangle{Min: dstMin, Max: dstMin.Add(srcRect.Size())}, src, srcRect.Min, draw.Over)
+	}
+}
+
+func (ts *TextureService) scaleNearest(src image.Image, factor int) image.Image {
+	if factor <= 1 {
+		return src
+	}
+	srcBounds := src.Bounds()
+	dst := image.NewNRGBA(image.Rect(0, 0, srcBounds.Dx()*factor, srcBounds.Dy()*factor))
+	for y := 0; y < srcBounds.Dy(); y++ {
+		for x := 0; x < srcBounds.Dx(); x++ {
+			c := color.NRGBAModel.Convert(src.At(srcBounds.Min.X+x, srcBounds.Min.Y+y)).(color.NRGBA)
+			ts.fillScaledPixel(dst, x*factor, y*factor, factor, c)
+		}
+	}
+	return dst
+}
+
+func (ts *TextureService) fillScaledPixel(dst *image.NRGBA, startX, startY, size int, c color.NRGBA) {
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			dst.SetNRGBA(startX+x, startY+y, c)
+		}
+	}
+}
+
+func (ts *TextureService) NormalizeTags(tags string) string {
+	if strings.TrimSpace(tags) == "" {
+		return ""
+	}
+	replacer := strings.NewReplacer("，", ",", "\n", ",", "\r", ",", "\t", ",", ";", ",", "|", ",")
+	normalized := replacer.Replace(tags)
+	seen := make(map[string]struct{})
+	result := make([]string, 0)
+	for _, part := range strings.Split(normalized, ",") {
+		tag := strings.TrimSpace(part)
+		if tag == "" {
+			continue
+		}
+		if _, exists := seen[tag]; exists {
+			continue
+		}
+		seen[tag] = struct{}{}
+		result = append(result, tag)
+	}
+	return strings.Join(result, ",")
+}
+
+func (ts *TextureService) NormalizeTextureName(name string, maxLength int) string {
+	if maxLength <= 0 || utf8.RuneCountInString(name) <= maxLength {
+		return name
+	}
+	var builder strings.Builder
+	count := 0
+	for _, r := range name {
+		if count >= maxLength {
+			break
+		}
+		builder.WriteRune(r)
+		count++
+	}
+	return builder.String()
 }

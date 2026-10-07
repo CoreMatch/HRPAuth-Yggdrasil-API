@@ -100,6 +100,11 @@ func main() {
 	}
 
 	r.GET("/textures/:hash", yggdrasilCtrl.DownloadTexture)
+	r.GET("/previews/:fileName", yggdrasilCtrl.DownloadPreview)
+	r.POST("/texture/upload/:uuid", yggdrasilCtrl.UploadTexture)
+	r.DELETE("/texture/delete/:uuid/:type", yggdrasilCtrl.DeleteTexture)
+	r.GET("/skin/:username", yggdrasilCtrl.LegacySkin)
+	r.GET("/skin/:username.png", yggdrasilCtrl.LegacySkin)
 	r.GET("/skins/MinecraftSkins/:username", yggdrasilCtrl.LegacySkin)
 
 	minecraftServices := r.Group("/minecraftservices")

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -521,6 +522,98 @@ func (yc *YggdrasilController) DownloadTexture(c *gin.Context) {
 
 	c.Header("Content-Type", contentType)
 	c.Data(http.StatusOK, contentType, data)
+}
+
+func (yc *YggdrasilController) DownloadPreview(c *gin.Context) {
+	fileName := c.Param("fileName")
+	if fileName == "" {
+		sendYggdrasilError(c, "BadRequestException", "Bad request.", http.StatusBadRequest)
+		return
+	}
+
+	data, contentType, err := yc.textureService.GetPreviewByFileName(fileName)
+	if err != nil {
+		sendYggdrasilError(c, "NotFoundException", "Preview not found.", http.StatusNotFound)
+		return
+	}
+
+	c.Header("Content-Type", contentType)
+	c.Data(http.StatusOK, contentType, data)
+}
+
+func (yc *YggdrasilController) UploadTexture(c *gin.Context) {
+	accessToken := parseYggdrasilBearerToken(c.GetHeader("Authorization"))
+	if accessToken == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	profileID := c.Param("uuid")
+	textureType := c.DefaultPostForm("type", "skin")
+	model := c.DefaultPostForm("model", "default")
+	name := c.PostForm("name")
+	description := c.PostForm("description")
+	tags := c.PostForm("tags")
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		return
+	}
+
+	opened, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open file"})
+		return
+	}
+	defer opened.Close()
+
+	fileData, err := io.ReadAll(opened)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+		return
+	}
+
+	warnings, err := yc.textureService.UploadTexture(accessToken, profileID, textureType, model, name, description, tags, fileData)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":  true,
+		"warnings": warnings,
+	})
+}
+
+func (yc *YggdrasilController) DeleteTexture(c *gin.Context) {
+	accessToken := parseYggdrasilBearerToken(c.GetHeader("Authorization"))
+	if accessToken == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	profileID := c.Param("uuid")
+	textureType := c.Param("type")
+
+	token := yc.authService.ValidateToken(accessToken, "")
+	if token == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	if !yc.authService.IsProfileOwnedByUser(profileID, token.UserID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+		return
+	}
+
+	// Logic to remove texture from profile property
+	if err := yc.textureService.RemoveProfileTexture(profileID, textureType); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (yc *YggdrasilController) LegacySkin(c *gin.Context) {

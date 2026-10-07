@@ -104,10 +104,66 @@ func (ProfileProperty) TableName() string {
 	return "profile_properties"
 }
 
-// Texture represents the raw texture metadata.
-type Texture struct {
-	Hash string `json:"hash"`
-	URL  string `json:"url"`
+// TextureListSkinBase is the base for skin/cape texture library records.
+type TextureListSkinBase struct {
+	ID          uint      `gorm:"primaryKey;autoIncrement;column:id"`
+	Hash        string    `gorm:"type:varchar(64);column:hash;uniqueIndex:uk_texture_list_account_hash,priority:2"`
+	AccountID   int       `gorm:"column:account_id;index:idx_texture_list_account;uniqueIndex:uk_texture_list_account_hash,priority:1"`
+	Model       string    `gorm:"type:enum('default','slim');default:'default';column:model"`
+	Width       int       `gorm:"not null;default:0;column:width"`
+	Height      int       `gorm:"not null;default:0;column:height"`
+	FileName    string    `gorm:"type:varchar(255);column:file_name"`
+	PreviewFile string    `gorm:"type:varchar(255);column:previewfile"`
+	Name        string    `gorm:"type:varchar(20);column:name"`
+	Description string    `gorm:"type:text;column:description"`
+	Tags        string    `gorm:"type:varchar(255);column:tags"`
+	CreatedAt   time.Time `gorm:"column:created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
+}
+
+type TextureListSkin struct {
+	TextureListSkinBase
+}
+
+func (TextureListSkin) TableName() string {
+	return "texture_list_skin"
+}
+
+type TextureListCape struct {
+	ID          uint      `gorm:"primaryKey;autoIncrement;column:id"`
+	Hash        string    `gorm:"type:varchar(64);column:hash;uniqueIndex:uk_texture_list_account_hash,priority:2"`
+	AccountID   int       `gorm:"column:account_id;index:idx_texture_list_account;uniqueIndex:uk_texture_list_account_hash,priority:1"`
+	Width       int       `gorm:"not null;default:0;column:width"`
+	Height      int       `gorm:"not null;default:0;column:height"`
+	FileName    string    `gorm:"type:varchar(255);column:file_name"`
+	PreviewFile string    `gorm:"type:varchar(255);column:previewfile"`
+	Name        string    `gorm:"type:varchar(20);column:name"`
+	Description string    `gorm:"type:text;column:description"`
+	Tags        string    `gorm:"type:varchar(255);column:tags"`
+	CreatedAt   time.Time `gorm:"column:created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
+}
+
+func (TextureListCape) TableName() string {
+	return "texture_list_cape"
+}
+
+// TextureRecord is a unified structure for texture records used in API responses.
+type TextureRecord struct {
+	ID          uint      `json:"id"`
+	Hash        string    `json:"hash"`
+	Type        string    `json:"type"`
+	AccountID   int       `json:"account_id"`
+	Model       string    `json:"model"`
+	Width       int       `json:"width"`
+	Height      int       `json:"height"`
+	FileName    string    `json:"file_name"`
+	PreviewFile string    `json:"preview_file"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Tags        string    `json:"tags"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // --- DTOs for Core API Communication ---

@@ -54,11 +54,12 @@ type SiteConfig struct {
 }
 
 type DatabaseConfig struct {
-	Host     string
-	DBName   string
-	User     string
-	Password string
-	Charset  string
+	Host        string
+	DBName      string
+	User        string
+	Password    string
+	Charset     string
+	TablePrefix string
 }
 
 type RedisConfig struct {
@@ -177,11 +178,12 @@ func parseServerRuntimeConfig(config map[string]interface{}) ServerRuntimeConfig
 func parseDatabaseConfig(config map[string]interface{}) DatabaseConfig {
 	db, _ := config["database"].(map[string]interface{})
 	return DatabaseConfig{
-		Host:     getString(db, "host"),
-		DBName:   getString(db, "db_name"),
-		User:     getString(db, "user"),
-		Password: getString(db, "password"),
-		Charset:  getString(db, "charset"),
+		Host:        getString(db, "host"),
+		DBName:      getString(db, "db_name"),
+		User:        getString(db, "user"),
+		Password:    getString(db, "password"),
+		Charset:     getString(db, "charset"),
+		TablePrefix: getString(db, "table_prefix"),
 	}
 }
 

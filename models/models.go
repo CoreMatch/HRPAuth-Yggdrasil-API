@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 )
 
 // Token represents the Yggdrasil authentication token.
@@ -10,7 +12,7 @@ type Token struct {
 	ID                int       `gorm:"primaryKey;autoIncrement;column:id"`
 	AccessToken       string    `gorm:"type:varchar(255);uniqueIndex;column:access_token"`
 	ClientToken       string    `gorm:"type:varchar(255);index:idx_tokens_client_token;column:client_token"`
-        AccountID         int       `gorm:"column:account_id;index"`
+	AccountID         int       `gorm:"column:account_id;index"`
 	SelectedProfileID string    `gorm:"type:varchar(32);column:selected_profile_id;index"`
 	IssuedAt          int64     `gorm:"type:bigint(20);column:issued_at"`
 	ExpiresInDays     int       `gorm:"default:15;column:expires_in_days"`
@@ -19,7 +21,7 @@ type Token struct {
 }
 
 func (Token) TableName() string {
-	return "tokens"
+	return config.AppConfig.Database.TablePrefix + "tokens"
 }
 
 // Session represents the Yggdrasil join/hasJoined session.
@@ -34,7 +36,7 @@ type Session struct {
 }
 
 func (Session) TableName() string {
-	return "sessions"
+	return config.AppConfig.Database.TablePrefix + "sessions"
 }
 
 // ProfileKey represents the chat-signing key pair issued to a user for the
@@ -42,7 +44,7 @@ func (Session) TableName() string {
 // Moved from core to Yggdrasil API provider.
 type ProfileKey struct {
 	ID                 int       `gorm:"primaryKey;autoIncrement;column:id"`
-        AccountID          int       `gorm:"column:account_id;uniqueIndex:uk_profile_keys_account_id"`
+	AccountID          int       `gorm:"column:account_id;uniqueIndex:uk_profile_keys_account_id"`
 	PublicKey          string    `gorm:"type:text;column:public_key"`
 	PrivateKey         string    `gorm:"type:text;column:private_key"`
 	PublicKeySignature string    `gorm:"type:text;column:public_key_signature"`
@@ -53,7 +55,7 @@ type ProfileKey struct {
 }
 
 func (ProfileKey) TableName() string {
-	return "profile_keys"
+	return config.AppConfig.Database.TablePrefix + "profile_keys"
 }
 
 // --- DTOs for Core API Communication ---
@@ -73,7 +75,7 @@ type Account struct {
 }
 
 func (Account) TableName() string {
-	return "accounts"
+	return config.AppConfig.Database.TablePrefix + "accounts"
 }
 
 // Profile represents a Minecraft character.
@@ -87,7 +89,7 @@ type Profile struct {
 }
 
 func (Profile) TableName() string {
-	return "profiles"
+	return config.AppConfig.Database.TablePrefix + "profiles"
 }
 
 // ProfileProperty represents dynamic attributes of a profile (e.g., textures).
@@ -101,7 +103,7 @@ type ProfileProperty struct {
 }
 
 func (ProfileProperty) TableName() string {
-	return "profile_properties"
+	return config.AppConfig.Database.TablePrefix + "profile_properties"
 }
 
 // TextureListSkinBase is the base for skin/cape texture library records.
@@ -126,7 +128,7 @@ type TextureListSkin struct {
 }
 
 func (TextureListSkin) TableName() string {
-	return "texture_list_skin"
+	return config.AppConfig.Database.TablePrefix + "texture_list_skin"
 }
 
 type TextureListCape struct {
@@ -145,7 +147,7 @@ type TextureListCape struct {
 }
 
 func (TextureListCape) TableName() string {
-	return "texture_list_cape"
+	return config.AppConfig.Database.TablePrefix + "texture_list_cape"
 }
 
 // TextureRecord is a unified structure for texture records used in API responses.

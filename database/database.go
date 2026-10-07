@@ -7,6 +7,7 @@ import (
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 var DB *gorm.DB
@@ -17,7 +18,11 @@ func Init() {
 		cfg.User, cfg.Password, cfg.Host, cfg.DBName, cfg.Charset)
 
 	var err error
-	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			TablePrefix: cfg.TablePrefix,
+		},
+	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

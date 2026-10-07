@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
 	mysqldriver "github.com/golang-migrate/migrate/v4/database/mysql"
+	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/clients"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
@@ -71,11 +73,12 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"relay_url":   "http://localhost:2770",
 		},
 		"database": map[string]interface{}{
-			"host":     "127.0.0.1",
-			"db_name":  "hrpauth_yggdrasil",
-			"user":     "root",
-			"password": "",
-			"charset":  "utf8mb4",
+			"host":         "127.0.0.1",
+			"db_name":      "hrpa",
+			"user":         "hrpa",
+			"password":     "hrpa",
+			"charset":      "utf8mb4",
+			"table_prefix": "haygg_",
 		},
 		"redis": map[string]interface{}{
 			"host":     "127.0.0.1",
@@ -320,6 +323,53 @@ func (sc *StartupController) generateRandomString(length int) string {
 	return string(b)
 }
 
+type prefixedSource struct {
+	source.Driver
+	prefix string
+}
+
+func (s *prefixedSource) ReadUp(version uint) (r io.ReadCloser, identifier string, err error) {
+	r, identifier, err = s.Driver.ReadUp(version)
+	if err != nil {
+		return nil, identifier, err
+	}
+	return s.wrapReader(r), identifier, nil
+}
+
+func (s *prefixedSource) ReadDown(version uint) (r io.ReadCloser, identifier string, err error) {
+	r, identifier, err = s.Driver.ReadDown(version)
+	if err != nil {
+		return nil, identifier, err
+	}
+	return s.wrapReader(r), identifier, nil
+}
+
+func (s *prefixedSource) wrapReader(r io.ReadCloser) io.ReadCloser {
+	if s.prefix == "" {
+		return r
+	}
+	content, err := io.ReadAll(r)
+	r.Close()
+	if err != nil {
+		return nil
+	}
+
+	tables := []string{
+		"accounts", "profiles", "profile_properties", "sessions", "tokens", "profile_keys",
+		"texture_list_skin", "texture_list_cape",
+	}
+
+	sContent := string(content)
+	for _, table := range tables {
+		// Replace `table` with `prefix_table`
+		sContent = strings.ReplaceAll(sContent, "`"+table+"`", "`"+s.prefix+table+"`")
+		// Also handle foreign key references that might be like REFERENCES accounts (id)
+		sContent = strings.ReplaceAll(sContent, "REFERENCES `"+table+"`", "REFERENCES `"+s.prefix+table+"`")
+	}
+
+	return io.NopCloser(strings.NewReader(sContent))
+}
+
 // EnsureMigrations runs all pending database migrations via golang-migrate.
 // It is idempotent — if the database is already at the latest version,
 // migrate.ErrNoChange is silently ignored.
@@ -336,12 +386,12 @@ func (sc *StartupController) EnsureMigrations() error {
 	}
 	defer db.Close()
 
-	if bootstrapErr := sc.ensureSchemaMigrationTable(db); bootstrapErr != nil {
+	if bootstrapErr := sc.ensureSchemaMigrationTable(db, cfg.TablePrefix); bootstrapErr != nil {
 		return bootstrapErr
 	}
 
 	driver, err := mysqldriver.WithInstance(db, &mysqldriver.Config{
-		MigrationsTable: "schema_migrations",
+		MigrationsTable: cfg.TablePrefix + "schema_migrations",
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %v", err)
@@ -352,7 +402,13 @@ func (sc *StartupController) EnsureMigrations() error {
 		return fmt.Errorf("failed to create migration source from embedded files: %v", err)
 	}
 
-	m, err := migrate.NewWithInstance("iofs", src, cfg.DBName, driver)
+	// Wrap the source to handle table prefixes
+	wrappedSrc := &prefixedSource{
+		Driver: src,
+		prefix: cfg.TablePrefix,
+	}
+
+	m, err := migrate.NewWithInstance("prefixed-iofs", wrappedSrc, cfg.DBName, driver)
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %v", err)
 	}
@@ -371,7 +427,7 @@ func (sc *StartupController) EnsureMigrations() error {
 		return fmt.Errorf("failed to run migrations: %v", err)
 	}
 
-	if err := sc.ensureSchemaMigrationServiceColumn(db); err != nil {
+	if err := sc.ensureSchemaMigrationServiceColumn(db, cfg.TablePrefix); err != nil {
 		return err
 	}
 
@@ -380,8 +436,8 @@ func (sc *StartupController) EnsureMigrations() error {
 	return nil
 }
 
-func (sc *StartupController) ensureSchemaMigrationTable(db *sql.DB) error {
-	query := "CREATE TABLE IF NOT EXISTS `schema_migrations` (" +
+func (sc *StartupController) ensureSchemaMigrationTable(db *sql.DB, prefix string) error {
+	query := "CREATE TABLE IF NOT EXISTS `" + prefix + "schema_migrations` (" +
 		"`version` bigint NOT NULL," +
 		"`dirty` boolean NOT NULL," +
 		"`service` varchar(16) NOT NULL DEFAULT '" + schemaMigrationService + "'," +
@@ -393,23 +449,24 @@ func (sc *StartupController) ensureSchemaMigrationTable(db *sql.DB) error {
 	return nil
 }
 
-func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB) error {
-	const tableExistsQuery = `
+func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB, prefix string) error {
+	tableName := prefix + "schema_migrations"
+	tableExistsQuery := `
 			SELECT COUNT(*)
 			FROM information_schema.TABLES
 			WHERE TABLE_SCHEMA = DATABASE()
-				AND TABLE_NAME = 'schema_migrations'
+				AND TABLE_NAME = ?
 	`
-	const columnExistsQuery = `
+	columnExistsQuery := `
 			SELECT COUNT(*)
 			FROM information_schema.COLUMNS
 			WHERE TABLE_SCHEMA = DATABASE()
-				AND TABLE_NAME = 'schema_migrations'
+				AND TABLE_NAME = ?
 				AND COLUMN_NAME = 'service'
 	`
 
 	var tableCount int
-	if err := db.QueryRow(tableExistsQuery).Scan(&tableCount); err != nil {
+	if err := db.QueryRow(tableExistsQuery, tableName).Scan(&tableCount); err != nil {
 		return fmt.Errorf("failed to check schema_migrations table: %v", err)
 	}
 	if tableCount == 0 {
@@ -417,19 +474,19 @@ func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB) erro
 	}
 
 	var columnCount int
-	if err := db.QueryRow(columnExistsQuery).Scan(&columnCount); err != nil {
+	if err := db.QueryRow(columnExistsQuery, tableName).Scan(&columnCount); err != nil {
 		return fmt.Errorf("failed to check schema_migrations service column: %v", err)
 	}
 
 	if columnCount == 0 {
-		query := "ALTER TABLE `schema_migrations` ADD COLUMN `service` varchar(16) NOT NULL DEFAULT '" + schemaMigrationService + "' AFTER `dirty`"
+		query := "ALTER TABLE `" + tableName + "` ADD COLUMN `service` varchar(16) NOT NULL DEFAULT '" + schemaMigrationService + "' AFTER `dirty`"
 		if _, err := db.Exec(query); err != nil {
 			return fmt.Errorf("failed to add schema_migrations service column: %v", err)
 		}
 	}
 
 	// Backfill any rows that don't have a service value.
-	if _, err := db.Exec("UPDATE `schema_migrations` SET `service` = '" + schemaMigrationService + "' WHERE `service` IS NULL OR `service` = ''"); err != nil {
+	if _, err := db.Exec("UPDATE `" + tableName + "` SET `service` = '" + schemaMigrationService + "' WHERE `service` IS NULL OR `service` = ''"); err != nil {
 		return fmt.Errorf("failed to backfill schema_migrations service: %v", err)
 	}
 
@@ -438,11 +495,11 @@ func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB) erro
 		SELECT COLUMN_NAME
 		FROM information_schema.KEY_COLUMN_USAGE
 		WHERE TABLE_SCHEMA = DATABASE()
-			AND TABLE_NAME = 'schema_migrations'
+			AND TABLE_NAME = ?
 			AND CONSTRAINT_NAME = 'PRIMARY'
 		ORDER BY ORDINAL_POSITION
 	`
-	rows, err := db.Query(pkQuery)
+	rows, err := db.Query(pkQuery, tableName)
 	if err != nil {
 		return fmt.Errorf("failed to check schema_migrations primary key: %v", err)
 	}
@@ -464,11 +521,11 @@ func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB) erro
 		return nil
 	}
 	if len(pkColumns) > 0 {
-		if _, err := db.Exec("ALTER TABLE `schema_migrations` DROP PRIMARY KEY"); err != nil {
+		if _, err := db.Exec("ALTER TABLE `" + tableName + "` DROP PRIMARY KEY"); err != nil {
 			return fmt.Errorf("failed to drop schema_migrations primary key: %v", err)
 		}
 	}
-	if _, err := db.Exec("ALTER TABLE `schema_migrations` ADD PRIMARY KEY (`service`)"); err != nil {
+	if _, err := db.Exec("ALTER TABLE `" + tableName + "` ADD PRIMARY KEY (`service`)"); err != nil {
 		return fmt.Errorf("failed to add schema_migrations primary key: %v", err)
 	}
 

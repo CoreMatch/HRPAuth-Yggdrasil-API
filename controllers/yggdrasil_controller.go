@@ -97,16 +97,18 @@ func (yc *YggdrasilController) GetMetadata() gin.H {
 	cfg := config.AppConfig.Yggdrasil.Server
 	frontendURL := config.AppConfig.Runtime.FrontendURL
 
-	links := gin.H{
-		"homepage": cfg.Links.Homepage,
-		"register": cfg.Links.Register,
+	homepage := cfg.Links.Homepage
+	register := cfg.Links.Register
+
+	// Prioritize frontendURL from backend for automatic splicing
+	if frontendURL != "" {
+		homepage = frontendURL
+		register = strings.TrimRight(frontendURL, "/") + "/register"
 	}
 
-	if links["homepage"] == "" {
-		links["homepage"] = frontendURL
-	}
-	if links["register"] == "" {
-		links["register"] = strings.TrimRight(frontendURL, "/") + "/register"
+	links := gin.H{
+		"homepage": homepage,
+		"register": register,
 	}
 
 	skinDomains := cfg.SkinDomains

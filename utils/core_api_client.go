@@ -36,7 +36,6 @@ func GetCoreAPIClient() *CoreAPIClient {
 				ClientID:     cfg.ClientID,
 				ClientSecret: cfg.ClientSecret,
 				TokenURL:     cfg.BaseURL + "/oauth/token",
-				Scopes:       []string{"service"}, // Assuming a default scope, can be configured
 			},
 		}
 	})

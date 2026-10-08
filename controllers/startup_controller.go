@@ -35,6 +35,7 @@ type StartupController struct{}
 
 const ConfigFileName = "config.yaml"
 const schemaMigrationService = "Yggdrasil-API"
+const relayPathPrefix = "/yggdrasil-api"
 
 func NewStartupController() *StartupController {
 	return &StartupController{}
@@ -597,18 +598,7 @@ func (sc *StartupController) RegisterService() error {
 
 	// 2. Register Relay Rules
 	base := strings.TrimRight(cfg.RelayURL, "/")
-	relays := []clients.RelayRule{
-		{Dest: "/authserver", Source: base + "/authserver"},
-		{Dest: "/sessionserver", Source: base + "/sessionserver"},
-		{Dest: "/api/profiles/minecraft", Source: base + "/api/profiles/minecraft"},
-		{Dest: "/textures", Source: base + "/textures"},
-		{Dest: "/previews", Source: base + "/previews"},
-		{Dest: "/texture", Source: base + "/texture"},
-		{Dest: "/skin", Source: base + "/skin"},
-		{Dest: "/skins", Source: base + "/skins"},
-		{Dest: "/minecraftservices", Source: base + "/minecraftservices"},
-		{Dest: "/register", Source: base + "/register"},
-	}
+        relays := buildRelayRules(base)
 
 	relayReq := clients.RelayRequest{
 		Name:   cfg.Name,
@@ -620,6 +610,31 @@ func (sc *StartupController) RegisterService() error {
 	log.Printf("Microservice relay rules registered for %d paths", len(relays))
 
 	return nil
+}
+
+func buildRelayRules(base string) []clients.RelayRule {
+        base = strings.TrimRight(base, "/")
+        paths := []string{
+                "/authserver",
+                "/sessionserver",
+                "/api/profiles/minecraft",
+                "/textures",
+                "/previews",
+                "/texture",
+                "/skin",
+                "/skins",
+                "/minecraftservices",
+                "/register",
+        }
+
+        relays := make([]clients.RelayRule, 0, len(paths))
+        for _, path := range paths {
+                relays = append(relays, clients.RelayRule{
+                        Dest:   relayPathPrefix + path,
+                        Source: base + path,
+                })
+        }
+        return relays
 }
 
 func (sc *StartupController) doJSONRequest(client *http.Client, method, url string, body, result interface{}) error {

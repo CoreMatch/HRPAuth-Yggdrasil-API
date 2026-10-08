@@ -27,10 +27,18 @@ func NewAuthService() *AuthService {
 }
 
 type UserInfo struct {
-        UUID      string
-        Email     string
-        Username  string
-        AccountID int
+	UUID      string
+	Email     string
+	Username  string
+	AccountID int
+}
+
+// maskTokenShort 对 token 类敏感字段做摘要输出，避免完整凭据落入日志。
+func maskTokenShort(s string) string {
+	if len(s) <= 16 {
+		return "***"
+	}
+	return s[:8] + "..." + s[len(s)-4:]
 }
 
 func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo, error) {
@@ -50,9 +58,9 @@ func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo
 						proxyUUID = *account.MojangUUID
 					}
 					return &UserInfo{
-                                                UUID:      proxyUUID,
-                                                Username:  profile.Name,
-                                                AccountID: account.ID,
+						UUID:      proxyUUID,
+						Username:  profile.Name,
+						AccountID: account.ID,
 					}, nil
 				}
 			}
@@ -65,26 +73,26 @@ func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo
 		return nil, err
 	}
 
-        var linkedAccount models.Account
-        if err := database.DB.Where("core_user_id = ?", user.UUID).First(&linkedAccount).Error; err == nil {
-                linkedAccount.LastSignAt = ptrTime(time.Now())
-                database.DB.Model(&linkedAccount).Update("last_sign_at", linkedAccount.LastSignAt)
-        }
+	var linkedAccount models.Account
+	if err := database.DB.Where("core_user_id = ?", user.UUID).First(&linkedAccount).Error; err == nil {
+		linkedAccount.LastSignAt = ptrTime(time.Now())
+		database.DB.Model(&linkedAccount).Update("last_sign_at", linkedAccount.LastSignAt)
+	}
 
 	return &UserInfo{
-                UUID:      user.UUID,
-                Email:     user.Email,
-                Username:  user.Username,
-                AccountID: linkedAccount.ID,
+		UUID:      user.UUID,
+		Email:     user.Email,
+		Username:  user.Username,
+		AccountID: linkedAccount.ID,
 	}, nil
 }
 
 func ptrString(s string) *string {
-        return &s
+	return &s
 }
 
 func ptrTime(t time.Time) *time.Time {
-        return &t
+	return &t
 }
 
 func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID string) (*models.Account, *models.Profile, error) {
@@ -124,7 +132,7 @@ func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID stri
 	var profile models.Profile
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
 		account = models.Account{
-                        CoreUserID: ptrString(user.UUID),
+			CoreUserID: ptrString(user.UUID),
 			MojangUUID: mUUIDPtr,
 		}
 		if err := tx.Create(&account).Error; err != nil {
@@ -280,10 +288,10 @@ type ProfileInfo struct {
 
 func (as *AuthService) GetUserProfiles(accountID int) []ProfileInfo {
 	var profiles []models.Profile
-        if accountID == 0 {
-                return nil
-        }
-        if err := database.DB.Where("account_id = ?", accountID).Find(&profiles).Error; err != nil {
+	if accountID == 0 {
+		return nil
+	}
+	if err := database.DB.Where("account_id = ?", accountID).Find(&profiles).Error; err != nil {
 		return nil
 	}
 
@@ -302,19 +310,27 @@ func (as *AuthService) GetUserProfiles(accountID int) []ProfileInfo {
 }
 
 func (as *AuthService) CreateToken(accessToken, clientToken string, accountID int, profileID string, expiresInDays int) bool {
-        as.EnforceTokenLimit(accountID)
+	revoked := as.EnforceTokenLimit(accountID)
+	if revoked > 0 {
+		log.Printf("[YGG-SVC] action=create_token account=%d profile=%s revoked_old=%d", accountID, profileID, revoked)
+	}
 
 	token := models.Token{
 		AccessToken:       accessToken,
 		ClientToken:       clientToken,
-                AccountID:         accountID,
+		AccountID:         accountID,
 		SelectedProfileID: profileID,
 		IssuedAt:          utils.CurrentTimestampMillis(),
 		ExpiresInDays:     expiresInDays,
 		State:             "valid",
 	}
 	result := database.DB.Create(&token)
-	return result.Error == nil
+	if result.Error != nil {
+		log.Printf("[YGG-SVC] action=create_token account=%d profile=%s result=failed err=%v", accountID, profileID, result.Error)
+		return false
+	}
+	log.Printf("[YGG-SVC] action=create_token account=%d profile=%s token_id=%d access_token=%s", accountID, profileID, token.ID, maskTokenShort(accessToken))
+	return true
 }
 
 func (as *AuthService) EnforceTokenLimit(accountID int) int64 {
@@ -325,9 +341,9 @@ func (as *AuthService) EnforceTokenLimit(accountID int) int64 {
 
 	var count int64
 	if err := database.DB.Model(&models.Token{}).
-                Where("account_id = ? AND state = ?", accountID, "valid").
+		Where("account_id = ? AND state = ?", accountID, "valid").
 		Count(&count).Error; err != nil {
-                log.Printf("[token-limit] count failed for account=%d: %v", accountID, err)
+		log.Printf("[token-limit] count failed for account=%d: %v", accountID, err)
 		return 0
 	}
 	if count < int64(limit) {
@@ -337,7 +353,7 @@ func (as *AuthService) EnforceTokenLimit(accountID int) int64 {
 	toRevoke := count - int64(limit) + 1
 	var oldest []models.Token
 	if err := database.DB.
-                Where("account_id = ? AND state = ?", accountID, "valid").
+		Where("account_id = ? AND state = ?", accountID, "valid").
 		Order("issued_at ASC").
 		Limit(int(toRevoke)).
 		Find(&oldest).Error; err != nil {
@@ -368,28 +384,34 @@ func (as *AuthService) InvalidateToken(accessToken string) bool {
 	result := database.DB.Model(&models.Token{}).
 		Where("access_token = ?", accessToken).
 		Update("state", "invalid")
+	if result.Error == nil {
+		log.Printf("[YGG-SVC] action=invalidate_token access_token=%s rows=%d", maskTokenShort(accessToken), result.RowsAffected)
+	}
 	return result.Error == nil
 }
 
 func (as *AuthService) InvalidateAllAccountTokens(accountID int) bool {
 	result := database.DB.Model(&models.Token{}).
-                Where("account_id = ? AND state = ?", accountID, "valid").
+		Where("account_id = ? AND state = ?", accountID, "valid").
 		Update("state", "invalid")
+	if result.Error == nil {
+		log.Printf("[YGG-SVC] action=invalidate_all_tokens account=%d rows=%d", accountID, result.RowsAffected)
+	}
 	return result.Error == nil
 }
 
 func (as *AuthService) InvalidateCoreUserTokens(coreUserID string) error {
-        var account models.Account
-        if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err != nil {
-                if err == gorm.ErrRecordNotFound {
-                        return nil
-                }
-                return err
-        }
-        if !as.InvalidateAllAccountTokens(account.ID) {
-                return fmt.Errorf("failed to invalidate account tokens")
-        }
-        return nil
+	var account models.Account
+	if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
+		return err
+	}
+	if !as.InvalidateAllAccountTokens(account.ID) {
+		return fmt.Errorf("failed to invalidate account tokens")
+	}
+	return nil
 }
 
 func (as *AuthService) GetValidTokenByClientToken(accountID int, clientToken string) *models.Token {
@@ -397,8 +419,8 @@ func (as *AuthService) GetValidTokenByClientToken(accountID int, clientToken str
 		return nil
 	}
 	var token models.Token
-        result := database.DB.Where("account_id = ? AND client_token = ? AND state = ?",
-                accountID, clientToken, "valid").First(&token)
+	result := database.DB.Where("account_id = ? AND client_token = ? AND state = ?",
+		accountID, clientToken, "valid").First(&token)
 	if result.Error != nil {
 		return nil
 	}
@@ -467,7 +489,7 @@ func (as *AuthService) RefreshTokenExpiry(accessToken string, expiresInDays int)
 
 func (as *AuthService) MarkOtherClientTokensTemporarilyInvalid(accountID int, currentClientToken string) int64 {
 	result := database.DB.Model(&models.Token{}).
-                Where("account_id = ? AND client_token != ? AND state = ?", accountID, currentClientToken, "valid").
+		Where("account_id = ? AND client_token != ? AND state = ?", accountID, currentClientToken, "valid").
 		Update("state", "temporarily_invalid")
 	if result.Error != nil {
 		return 0
@@ -500,12 +522,12 @@ func (as *AuthService) GetProfileByID(profileID string) *ProfileInfo {
 }
 
 func (as *AuthService) IsProfileOwnedByAccount(profileID string, accountID int) bool {
-        if accountID == 0 {
+	if accountID == 0 {
 		return false
 	}
 
 	var profile models.Profile
-        if err := database.DB.Where("id = ? AND account_id = ?", profileID, accountID).First(&profile).Error; err != nil {
+	if err := database.DB.Where("id = ? AND account_id = ?", profileID, accountID).First(&profile).Error; err != nil {
 		return false
 	}
 	return true
@@ -520,7 +542,9 @@ func (as *AuthService) CreateSession(profileID, serverID, ip string) bool {
 	if result.Error == nil {
 		existingSession.IP = ip
 		existingSession.ExpiresAt = time.Now().Add(time.Duration(config.AppConfig.Yggdrasil.Security.SessionExpirySeconds) * time.Second)
-		return database.DB.Save(&existingSession).Error == nil
+		ok := database.DB.Save(&existingSession).Error == nil
+		log.Printf("[YGG-SVC] action=create_session profile=%s server=%s ip=%s mode=renew expires_at=%s result=%t", profileID, serverID, ip, existingSession.ExpiresAt.Format("2006-01-02 15:04:05"), ok)
+		return ok
 	}
 
 	session := models.Session{
@@ -529,7 +553,10 @@ func (as *AuthService) CreateSession(profileID, serverID, ip string) bool {
 		IP:        ip,
 		ExpiresAt: time.Now().Add(time.Duration(config.AppConfig.Yggdrasil.Security.SessionExpirySeconds) * time.Second),
 	}
-	return database.DB.Create(&session).Error == nil
+	err := database.DB.Create(&session).Error
+	ok := err == nil
+	log.Printf("[YGG-SVC] action=create_session profile=%s server=%s ip=%s mode=new expires_at=%s result=%t err=%v", profileID, serverID, ip, session.ExpiresAt.Format("2006-01-02 15:04:05"), ok, err)
+	return ok
 }
 
 func (as *AuthService) GetSessionByProfileAndServer(profileName, serverID string) *models.Session {

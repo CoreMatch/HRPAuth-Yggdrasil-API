@@ -39,6 +39,44 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
+// statusRecorder 捕获响应状态码，供访问日志使用。
+type statusRecorder struct {
+	gin.ResponseWriter
+	status int
+}
+
+func (sr *statusRecorder) WriteHeader(code int) {
+	sr.status = code
+	sr.ResponseWriter.WriteHeader(code)
+}
+
+func (sr *statusRecorder) Write(b []byte) (int, error) {
+	if sr.status == 0 {
+		sr.status = http.StatusOK
+	}
+	return sr.ResponseWriter.Write(b)
+}
+
+// AccessLogMiddleware 输出统一前缀 [YGG-HTTP] 的全局访问日志。
+// 需要配合 controllers.RequestIDMiddleware 使用（先注册），仅记录请求元信息，
+// 不读取请求体，避免日志中出现密码或凭据。
+func AccessLogMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: c.Writer}
+		c.Writer = rec
+
+		c.Next()
+
+		status := rec.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		log.Printf("[YGG-HTTP] request_id=%s method=%s path=%s query=%s client_ip=%s status=%d duration_ms=%d",
+			c.GetString("request_id"), c.Request.Method, c.Request.URL.Path, c.Request.URL.RawQuery, c.ClientIP(), status, time.Since(start).Milliseconds())
+	}
+}
+
 func main() {
 	// Initialize configuration (creates default if missing)
 	startupCtrl := controllers.NewStartupController()
@@ -73,7 +111,9 @@ func main() {
 
 	r := gin.Default()
 
+	r.Use(controllers.RequestIDMiddleware())
 	r.Use(CORSMiddleware())
+	r.Use(AccessLogMiddleware())
 
 	yggdrasilCtrl := controllers.NewYggdrasilController()
 	registerCtrl := controllers.NewRegisterController()

@@ -496,20 +496,19 @@ func (yc *YggdrasilController) ProfileQuery(c *gin.Context) {
 	log.Printf("[YGG-BIZ] request_id=%s action=profile_query uuid=%s profile=%s/%s unsigned=%t properties=%d result=success status=%d", c.GetString("request_id"), uuid, profile.ID, profile.Name, unsigned, len(props), http.StatusOK)
 }
 
-type BatchProfileRequest struct {
-	Names []string `json:"names"`
-}
-
+// BatchProfiles 实现 Yggdrasil 标准的 POST /api/profiles/minecraft。
+// 请求体必须是纯 JSON 数组 ["name1","name2",...]（authlib-injector / wiki.vg 标准），
+// 响应为纯数组 [{"id":..., "name":...}]，仅返回命中的档案。
 func (yc *YggdrasilController) BatchProfiles(c *gin.Context) {
-	var req BatchProfileRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var names []string
+	if err := c.ShouldBindJSON(&names); err != nil {
 		log.Printf("[YGG-BIZ] request_id=%s action=batch_profiles result=invalid_json status=%d", c.GetString("request_id"), http.StatusBadRequest)
-		respondError(c, http.StatusBadRequest, CodeInvalidJSONBody, "Bad request.")
+		sendYggdrasilError(c, "IllegalArgumentException", "Profiles name must be an array of strings.", http.StatusBadRequest)
 		return
 	}
 
-	result := make([]gin.H, 0)
-	for _, name := range req.Names {
+	result := make([]gin.H, 0, len(names))
+	for _, name := range names {
 		profile := yc.authService.GetProfileByName(name)
 		if profile != nil {
 			result = append(result, gin.H{
@@ -519,8 +518,8 @@ func (yc *YggdrasilController) BatchProfiles(c *gin.Context) {
 		}
 	}
 
-	log.Printf("[YGG-BIZ] request_id=%s action=batch_profiles requested=%d matched=%d result=success status=%d", c.GetString("request_id"), len(req.Names), len(result), http.StatusOK)
-	respondOK(c, "Batch profile query successful", result)
+	log.Printf("[YGG-BIZ] request_id=%s action=batch_profiles requested=%d matched=%d result=success status=%d", c.GetString("request_id"), len(names), len(result), http.StatusOK)
+	c.JSON(http.StatusOK, result)
 }
 
 func (yc *YggdrasilController) PlayerCertificates(c *gin.Context) {

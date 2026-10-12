@@ -77,6 +77,8 @@ func (as *AuthService) VerifyCredentials(identifier, password string) (*UserInfo
 	if err := database.DB.Where("core_user_id = ?", user.UUID).First(&linkedAccount).Error; err == nil {
 		linkedAccount.LastSignAt = ptrTime(time.Now())
 		database.DB.Model(&linkedAccount).Update("last_sign_at", linkedAccount.LastSignAt)
+		// 登录成功时顺便同步一下用户名
+		as.getCachedUsername(user.UUID)
 	}
 
 	return &UserInfo{
@@ -224,19 +226,45 @@ func (as *AuthService) ClaimAccount(mojangUUID, coreUserID string) error {
 	}).Error
 }
 
-func (as *AuthService) SyncUsername(coreUserID, newUsername string) error {
-	var account models.Account
-	if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err != nil {
-		return nil // No game account to sync
+func (as *AuthService) getCachedUsername(coreUserID string) string {
+	ctx := context.Background()
+	key := config.AppConfig.Redis.Prefix + "username:" + coreUserID
+	val, err := redis.Client.Get(ctx, key).Result()
+	if err == nil {
+		return val
 	}
 
-	// In 1:1 mapping, we assume the user has a default profile with the same name.
-	// We sync all profiles owned by this account that match the old core username?
-	// Actually, the requirement says "直接继承原主服务的 username", and sync is "自动同步".
-	// We'll update all profiles for this account to the new username if they were matching the old one?
-	// Or just update the "primary" profile. Let's update all for simplicity in 1:1.
+	// Not in Redis, fetch from Core
+	user, err := as.coreClient.GetUserInfo(coreUserID)
+	if err != nil {
+		// 如果核心服务返回 404，说明用户已被删除，同步清理本地记录
+		if strings.Contains(err.Error(), "status 404") {
+			log.Printf("[YGG-SVC] user %s not found in core, deleting local account", coreUserID)
+			as.DeleteAccount(coreUserID)
+		}
+		log.Printf("[YGG-SVC] failed to fetch user info from core for %s: %v", coreUserID, err)
+		return ""
+	}
 
-	return database.DB.Model(&models.Profile{}).Where("account_id = ?", account.ID).Update("name", newUsername).Error
+	// Update Redis (10 minutes)
+	redis.Client.Set(ctx, key, user.Username, 10*time.Minute)
+
+	// Update local Database
+	var account models.Account
+	if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err == nil {
+		database.DB.Model(&models.Profile{}).Where("account_id = ?", account.ID).Update("name", user.Username)
+	}
+
+	return user.Username
+}
+
+func (as *AuthService) SyncUsername(coreUserID, newUsername string) error {
+	// Replaced by lazy loading logic, but keeping the method signature for now if needed
+	// Or just clear the cache to force a refresh
+	ctx := context.Background()
+	key := config.AppConfig.Redis.Prefix + "username:" + coreUserID
+	redis.Client.Del(ctx, key)
+	return nil
 }
 
 func (as *AuthService) DeleteAccount(coreUserID string) error {
@@ -291,6 +319,13 @@ func (as *AuthService) GetUserProfiles(accountID int) []ProfileInfo {
 	if accountID == 0 {
 		return nil
 	}
+
+	var account models.Account
+	if err := database.DB.Where("id = ?", accountID).First(&account).Error; err == nil && account.CoreUserID != nil {
+		// 懒加载：确保用户名是最新的
+		as.getCachedUsername(*account.CoreUserID)
+	}
+
 	if err := database.DB.Where("account_id = ?", accountID).Find(&profiles).Error; err != nil {
 		return nil
 	}
@@ -512,6 +547,14 @@ func (as *AuthService) GetProfileByID(profileID string) *ProfileInfo {
 	var profile models.Profile
 	if err := database.DB.Where("id = ?", profileID).First(&profile).Error; err != nil {
 		return nil
+	}
+
+	var account models.Account
+	if err := database.DB.Where("id = ?", profile.AccountID).First(&account).Error; err == nil && account.CoreUserID != nil {
+		// 懒加载：确保用户名是最新的
+		as.getCachedUsername(*account.CoreUserID)
+		// 重新拉取以获取最新 Name
+		database.DB.Where("id = ?", profileID).First(&profile)
 	}
 
 	return &ProfileInfo{

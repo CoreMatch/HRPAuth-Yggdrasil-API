@@ -75,12 +75,26 @@ func (c *CoreClient) VerifyCredentials(identifier, password string) (*models.Use
 	return &user, nil
 }
 
+type UserInfoResponse struct {
+	Data models.User `json:"data"`
+}
+
+func (c *CoreClient) GetUserInfo(uuid string) (*models.User, error) {
+	var resp UserInfoResponse
+	err := c.doRequest("GET", "/services/users/"+uuid, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Data, nil
+}
+
 type PresenceRequest struct {
-	Name          string         `json:"name"`
-	TTLSeconds    int            `json:"ttl_seconds,omitempty"`
-	Scope         *PresenceScope `json:"scope,omitempty"`
-	SDKURL        string         `json:"sdk_url,omitempty"`
-	SecurityLevel int            `json:"security_level"`
+	Name          string                 `json:"name"`
+	TTLSeconds    int                    `json:"ttl_seconds,omitempty"`
+	Scope         *PresenceScope         `json:"scope,omitempty"`
+	SDKURL        string                 `json:"sdk_url,omitempty"`
+	SecurityLevel int                    `json:"security_level"`
+	RootMetadata  map[string]interface{} `json:"root_metadata,omitempty"`
 }
 
 type PresenceScope struct {
@@ -108,15 +122,9 @@ func (c *CoreClient) RegisterRelay(req RelayRequest) error {
 
 type CoreMetadata struct {
 	Site struct {
-		URL string `json:"url"`
+		URL         string `json:"url"`
+		FrontendURL string `json:"frontend_url"`
 	} `json:"site"`
-	Yggdrasil struct {
-		Meta struct {
-			Links struct {
-				Homepage string `json:"homepage"`
-			} `json:"links"`
-		} `json:"meta"`
-	} `json:"yggdrasil"`
 }
 
 func (c *CoreClient) GetMetadata() (*CoreMetadata, error) {

@@ -556,7 +556,7 @@ func (sc *StartupController) FetchMetadata() error {
 	}
 
 	config.AppConfig.Runtime.SiteURL = meta.Site.URL
-	config.AppConfig.Runtime.FrontendURL = meta.Yggdrasil.Meta.Links.Homepage
+	config.AppConfig.Runtime.FrontendURL = meta.Site.FrontendURL
 	log.Printf("Fetched runtime config: SiteURL=%s, FrontendURL=%s", config.AppConfig.Runtime.SiteURL, config.AppConfig.Runtime.FrontendURL)
 	return nil
 }
@@ -607,10 +607,14 @@ func (sc *StartupController) RegisterService() error {
 	}
 
 	// 1. Register Presence
+	yggMeta := NewYggdrasilController().GetMetadata()
 	presenceReq := clients.PresenceRequest{
 		Name:          cfg.Name,
 		TTLSeconds:    cfg.TTLSeconds,
-		SecurityLevel: 2, // Level 2 for service registration
+		SecurityLevel: 0, // Level 0 to allow anonymous relay for Yggdrasil
+		RootMetadata: map[string]interface{}{
+			"yggdrasil": yggMeta,
+		},
 	}
 
 	if err := sc.doJSONRequest(client, "POST", config.AppConfig.CoreAPI.BaseURL+"/services/presence", presenceReq, nil); err != nil {

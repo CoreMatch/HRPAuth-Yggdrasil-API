@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
+	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/services"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/utils"
 )
@@ -609,6 +610,51 @@ func (yc *YggdrasilController) DownloadPreview(c *gin.Context) {
 	c.Data(http.StatusOK, contentType, data)
 }
 
+func (yc *YggdrasilController) GetTextures(c *gin.Context) {
+	accessToken := parseYggdrasilBearerToken(c.GetHeader("Authorization"))
+	if accessToken == "" {
+		respondError(c, http.StatusUnauthorized, CodeOAuthLoginRequired, "Unauthorized")
+		return
+	}
+
+	token := yc.authService.ValidateToken(accessToken, "")
+	if token == nil {
+		respondError(c, http.StatusUnauthorized, CodeOAuthLoginRequired, "Unauthorized")
+		return
+	}
+
+	profiles := yc.authService.GetUserProfiles(token.AccountID)
+	history, err := yc.textureService.GetAccountTextureHistory(token.AccountID)
+	if err != nil {
+		history = []models.TextureRecord{}
+	}
+
+	profileData := make([]gin.H, 0, len(profiles))
+	for _, p := range profiles {
+		textures, _ := yc.textureService.GetTextures(p.ID)
+		formattedTextures := gin.H{}
+		for tType, info := range textures {
+			parts := strings.Split(info.URL, "/")
+			hash := parts[len(parts)-1]
+			formattedTextures[strings.ToLower(tType)] = gin.H{
+				"url":  info.URL,
+				"hash": hash,
+			}
+		}
+		profileData = append(profileData, gin.H{
+			"id":       p.ID,
+			"name":     p.Name,
+			"model":    p.Model,
+			"textures": formattedTextures,
+		})
+	}
+
+	respondOK(c, "Success", gin.H{
+		"profiles": profileData,
+		"history":  history,
+	})
+}
+
 func (yc *YggdrasilController) UploadTexture(c *gin.Context) {
 	accessToken := parseYggdrasilBearerToken(c.GetHeader("Authorization"))
 	if accessToken == "" {
@@ -620,9 +666,6 @@ func (yc *YggdrasilController) UploadTexture(c *gin.Context) {
 	profileID := c.Param("uuid")
 	textureType := c.DefaultPostForm("type", "skin")
 	model := c.DefaultPostForm("model", "default")
-	name := c.PostForm("name")
-	description := c.PostForm("description")
-	tags := c.PostForm("tags")
 
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -644,7 +687,7 @@ func (yc *YggdrasilController) UploadTexture(c *gin.Context) {
 		return
 	}
 
-	warnings, err := yc.textureService.UploadTexture(accessToken, profileID, textureType, model, name, description, tags, fileData)
+	warnings, err := yc.textureService.UploadTexture(accessToken, profileID, textureType, model, fileData)
 	if err != nil {
 		log.Printf("[YGG-BIZ] request_id=%s action=upload_texture profile=%s type=%s size=%d result=failed err=%v status=%d", c.GetString("request_id"), profileID, textureType, len(fileData), err, http.StatusBadRequest)
 		respondError(c, http.StatusBadRequest, CodeTextureUploadFailed, err.Error())

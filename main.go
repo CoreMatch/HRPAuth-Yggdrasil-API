@@ -159,6 +159,7 @@ func main() {
 
 	r.GET("/textures/:hash", yggdrasilCtrl.DownloadTexture)
 	r.GET("/previews/:fileName", yggdrasilCtrl.DownloadPreview)
+	r.POST("/texture/get", yggdrasilCtrl.GetTextures)
 	r.POST("/texture/upload/:uuid", yggdrasilCtrl.UploadTexture)
 	r.DELETE("/texture/delete/:uuid/:type", yggdrasilCtrl.DeleteTexture)
 	r.GET("/skin/:username", yggdrasilCtrl.LegacySkin)

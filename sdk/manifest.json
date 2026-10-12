@@ -4,11 +4,6 @@
   "version": "1.0.0",
   "routes": [
     {
-      "path": "/skinlib",
-      "module": "src/pages/Skinlib",
-      "title": "Skin Library"
-    },
-    {
       "path": "/mojang-bind",
       "module": "src/pages/MojangBind",
       "title": "Mojang Binding"
@@ -20,8 +15,8 @@
     }
   ],
   "menu": {
-    "label": "Skin Library",
-    "path": "/skinlib"
+    "label": "Minecraft Assets",
+    "path": "/texture-management"
   },
   "dashboard": {
     "label": "Minecraft Assets",

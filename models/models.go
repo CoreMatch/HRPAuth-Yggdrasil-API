@@ -116,9 +116,6 @@ type TextureListSkinBase struct {
 	Height      int       `gorm:"not null;default:0;column:height"`
 	FileName    string    `gorm:"type:varchar(255);column:file_name"`
 	PreviewFile string    `gorm:"type:varchar(255);column:previewfile"`
-	Name        string    `gorm:"type:varchar(20);column:name"`
-	Description string    `gorm:"type:text;column:description"`
-	Tags        string    `gorm:"type:varchar(255);column:tags"`
 	CreatedAt   time.Time `gorm:"column:created_at"`
 	UpdatedAt   time.Time `gorm:"column:updated_at"`
 }
@@ -139,9 +136,6 @@ type TextureListCape struct {
 	Height      int       `gorm:"not null;default:0;column:height"`
 	FileName    string    `gorm:"type:varchar(255);column:file_name"`
 	PreviewFile string    `gorm:"type:varchar(255);column:previewfile"`
-	Name        string    `gorm:"type:varchar(20);column:name"`
-	Description string    `gorm:"type:text;column:description"`
-	Tags        string    `gorm:"type:varchar(255);column:tags"`
 	CreatedAt   time.Time `gorm:"column:created_at"`
 	UpdatedAt   time.Time `gorm:"column:updated_at"`
 }
@@ -161,11 +155,22 @@ type TextureRecord struct {
 	Height      int       `json:"height"`
 	FileName    string    `json:"file_name"`
 	PreviewFile string    `json:"preview_file"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Tags        string    `json:"tags"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// TextureInfo represents the texture details in Yggdrasil property.
+type TextureInfo struct {
+	URL      string                 `json:"url"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// TexturePayload represents the JSON payload of the "textures" property.
+type TexturePayload struct {
+	Timestamp   int64                  `json:"timestamp"`
+	ProfileID   string                 `json:"profileId"`
+	ProfileName string                 `json:"profileName"`
+	Textures    map[string]TextureInfo `json:"textures"`
 }
 
 // --- DTOs for Core API Communication ---

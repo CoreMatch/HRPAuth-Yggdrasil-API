@@ -55,13 +55,16 @@ export default function TextureManagement() {
   const fetchTextures = async () => {
     try {
       const response = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
-      if (response.success && response.data && Array.isArray(response.data.textures)) {
-        dataCache.setTextures(response.data.textures);
-        const skinTexture = response.data.textures.find((t: TextureInfo) => t.texture_type === 'skin');
-        const capeTexture = response.data.textures.find((t: TextureInfo) => t.texture_type === 'cape');
-        const cacheBust = Date.now();
-        setSkinUrl(skinTexture?.url ? `${normalizeTextureUrl(skinTexture.url)}?${cacheBust}` : null);
-        setCapeUrl(capeTexture?.url ? `${normalizeTextureUrl(capeTexture.url)}?${cacheBust}` : null);
+      if (response.success && response.data) {
+        // Assume for now we use the first profile or the one matching the current session
+        const profile = response.data.profiles?.[0];
+        if (profile) {
+          const skinTexture = profile.textures?.skin;
+          const capeTexture = profile.textures?.cape;
+          const cacheBust = Date.now();
+          setSkinUrl(skinTexture?.url ? `${normalizeTextureUrl(skinTexture.url)}?${cacheBust}` : null);
+          setCapeUrl(capeTexture?.url ? `${normalizeTextureUrl(capeTexture.url)}?${cacheBust}` : null);
+        }
       } else {
         setSkinUrl(null);
         setCapeUrl(null);
@@ -124,13 +127,22 @@ export default function TextureManagement() {
       setError(t('profile.textureDialog.errors.selectFile', { type: t(type === 'skin' ? 'profile.textureDialog.skin' : 'profile.textureDialog.cape') }));
       return;
     }
+
+    // Get current profile UUID
+    const responseGet = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
+    const profileID = responseGet.data?.profiles?.[0]?.id;
+    if (!profileID) {
+      setError("Profile not found");
+      return;
+    }
+
     setUploading(type);
     setError(null);
     try {
       const formData = new FormData();
-      formData.append('texture_type', type);
+      formData.append('type', type);
       formData.append('file', file);
-      const response = await request(`${BackendUrl}/texture/upload`, { method: 'POST', body: formData });
+      const response = await request(`${BackendUrl}/texture/upload/${profileID}`, { method: 'POST', body: formData });
       if (response.success) {
         setSuccess({ type, action: 'upload' });
         if (type === 'skin') {
@@ -154,13 +166,19 @@ export default function TextureManagement() {
   };
 
   const handleDelete = async (type: TextureType) => {
+    // Get current profile UUID
+    const responseGet = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
+    const profileID = responseGet.data?.profiles?.[0]?.id;
+    if (!profileID) {
+      setError("Profile not found");
+      return;
+    }
+
     setDeleting(type);
     setError(null);
     try {
-      const response = await request(`${BackendUrl}/texture/delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texture_type: type }),
+      const response = await request(`${BackendUrl}/texture/delete/${profileID}/${type}`, {
+        method: 'DELETE',
       });
       if (response.success) {
         setSuccess({ type, action: 'delete' });

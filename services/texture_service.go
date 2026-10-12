@@ -21,9 +21,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/HugoSmits86/nativewebp"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
@@ -39,24 +39,11 @@ func NewTextureService() *TextureService {
 }
 
 const (
-	previewScale      = 8
-	maxTextureNameLen = 20
-	defaultSkinModel  = "default"
-	texturesSubDir    = "textures"
-	previewsSubDir    = "previews"
+	previewScale     = 8
+	defaultSkinModel = "default"
+	texturesSubDir   = "textures"
+	previewsSubDir   = "previews"
 )
-
-type TextureInfo struct {
-	URL      string                 `json:"url"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
-}
-
-type TexturesPayload struct {
-	Timestamp   int64                  `json:"timestamp"`
-	ProfileID   string                 `json:"profileId"`
-	ProfileName string                 `json:"profileName"`
-	Textures    map[string]TextureInfo `json:"textures"`
-}
 
 type TextureValidationResult struct {
 	Data     []byte
@@ -272,7 +259,7 @@ func (ts *TextureService) GetEffectiveCallbackURL() string {
 	return siteURL + prefix
 }
 
-func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, model, name, description, tags string, fileData []byte) ([]string, error) {
+func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, model string, fileData []byte) ([]string, error) {
 	token := NewAuthService().ValidateToken(accessToken, "")
 	if token == nil {
 		return nil, fmt.Errorf("invalid access token")
@@ -313,8 +300,8 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 		return nil, err
 	}
 
-	// Save to texture library
-	if err := ts.UpsertTextureRecord(token.AccountID, textureType, hash, model, name, description, tags, validated.Width, validated.Height, previewFileName); err != nil {
+	// Save to texture library (upload history)
+	if err := ts.UpsertTextureRecord(token.AccountID, textureType, hash, model, validated.Width, validated.Height, previewFileName); err != nil {
 		log.Printf("Warning: failed to upsert texture record: %v", err)
 	}
 
@@ -322,13 +309,7 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 	return warnings, nil
 }
 
-func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, model, name, description, tags string, width, height int, previewFile string) error {
-	normalizedTags := ts.NormalizeTags(tags)
-	normalizedName := ts.NormalizeTextureName(strings.TrimSpace(name), maxTextureNameLen)
-	if normalizedName == "" {
-		normalizedName = hash[:8]
-	}
-
+func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, model string, width, height int, previewFile string) error {
 	switch textureType {
 	case "skin":
 		var existing models.TextureListSkin
@@ -342,9 +323,6 @@ func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, 
 					Width:       width,
 					Height:      height,
 					PreviewFile: previewFile,
-					Name:        normalizedName,
-					Description: description,
-					Tags:        normalizedTags,
 				},
 			}
 			return database.DB.Create(&newSkin).Error
@@ -352,9 +330,6 @@ func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, 
 			return database.DB.Model(&existing).Updates(map[string]interface{}{
 				"model":       model,
 				"previewfile": previewFile,
-				"name":        normalizedName,
-				"description": description,
-				"tags":        normalizedTags,
 			}).Error
 		}
 		return err
@@ -368,17 +343,11 @@ func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, 
 				Width:       width,
 				Height:      height,
 				PreviewFile: previewFile,
-				Name:        normalizedName,
-				Description: description,
-				Tags:        normalizedTags,
 			}
 			return database.DB.Create(&newCape).Error
 		} else if err == nil {
 			return database.DB.Model(&existing).Updates(map[string]interface{}{
 				"previewfile": previewFile,
-				"name":        normalizedName,
-				"description": description,
-				"tags":        normalizedTags,
 			}).Error
 		}
 		return err
@@ -387,7 +356,7 @@ func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, 
 }
 
 func (ts *TextureService) UpdateProfileTexture(profileID, textureType, textureURL, model string) error {
-	payload := ts.GenerateTexturesPayload(profileID, textureType, textureURL, model)
+	payload := ts.GenerateTexturePayload(profileID, textureType, textureURL, model)
 	value := base64.StdEncoding.EncodeToString([]byte(payload))
 
 	signature, err := ts.SignTextureValue(value)
@@ -435,7 +404,7 @@ func (ts *TextureService) RemoveProfileTexture(profileID, textureType string) er
 		return fmt.Errorf("failed to decode textures property")
 	}
 
-	var payload TexturesPayload
+	var payload models.TexturePayload
 	if err := json.Unmarshal(decoded, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal textures payload")
 	}
@@ -465,7 +434,7 @@ func (ts *TextureService) createTombstoneValue(prop *models.ProfileProperty, tex
 	if err != nil {
 		return prop.Value
 	}
-	var payload TexturesPayload
+	var payload models.TexturePayload
 	if err := json.Unmarshal(decoded, &payload); err != nil {
 		return prop.Value
 	}
@@ -475,11 +444,11 @@ func (ts *TextureService) createTombstoneValue(prop *models.ProfileProperty, tex
 		return prop.Value
 	}
 
-	newPayload := TexturesPayload{
+	newPayload := models.TexturePayload{
 		Timestamp:   payload.Timestamp,
 		ProfileID:   payload.ProfileID,
 		ProfileName: payload.ProfileName,
-		Textures: map[string]TextureInfo{
+		Textures: map[string]models.TextureInfo{
 			strings.ToUpper(textureType): info,
 		},
 	}
@@ -487,8 +456,8 @@ func (ts *TextureService) createTombstoneValue(prop *models.ProfileProperty, tex
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-func (ts *TextureService) GenerateTexturesPayload(profileID, textureType, textureURL, model string) string {
-	var props map[string]TextureInfo
+func (ts *TextureService) GenerateTexturePayload(profileID, textureType, textureURL, model string) string {
+	var props map[string]models.TextureInfo
 
 	var existingProp models.ProfileProperty
 	database.DB.
@@ -497,14 +466,14 @@ func (ts *TextureService) GenerateTexturesPayload(profileID, textureType, textur
 
 	if existingProp.ID != 0 {
 		decoded, _ := base64.StdEncoding.DecodeString(existingProp.Value)
-		var existingPayload TexturesPayload
+		var existingPayload models.TexturePayload
 		if err := json.Unmarshal(decoded, &existingPayload); err == nil {
 			props = existingPayload.Textures
 		}
 	}
 
 	if props == nil {
-		props = make(map[string]TextureInfo)
+		props = make(map[string]models.TextureInfo)
 	}
 
 	metadata := make(map[string]interface{})
@@ -512,7 +481,7 @@ func (ts *TextureService) GenerateTexturesPayload(profileID, textureType, textur
 		metadata["model"] = model
 	}
 
-	props[strings.ToUpper(textureType)] = TextureInfo{
+	props[strings.ToUpper(textureType)] = models.TextureInfo{
 		URL:      textureURL,
 		Metadata: metadata,
 	}
@@ -524,7 +493,7 @@ func (ts *TextureService) GenerateTexturesPayload(profileID, textureType, textur
 		profileName = profile.Name
 	}
 
-	payload := TexturesPayload{
+	payload := models.TexturePayload{
 		Timestamp:   time.Now().UnixMilli(),
 		ProfileID:   profileID,
 		ProfileName: profileName,
@@ -570,7 +539,7 @@ func (ts *TextureService) RewriteTexturesProperty(prop *models.ProfileProperty) 
 		return err
 	}
 
-	var payload TexturesPayload
+	var payload models.TexturePayload
 	if err := json.Unmarshal(decoded, &payload); err != nil {
 		return err
 	}
@@ -671,7 +640,7 @@ func (ts *TextureService) GetSkinTexturePathByProfileName(name string) (string, 
 		return "", fmt.Errorf("failed to decode texture property: %v", err)
 	}
 
-	var payload TexturesPayload
+	var payload models.TexturePayload
 	if err := json.Unmarshal(decoded, &payload); err != nil {
 		return "", fmt.Errorf("failed to unmarshal texture payload: %v", err)
 	}
@@ -715,7 +684,7 @@ func (ts *TextureService) CleanupOrphanedTextures() int {
 	for _, orphan := range orphans {
 		decoded, err := base64.StdEncoding.DecodeString(orphan.Value)
 		if err == nil {
-			var payload TexturesPayload
+			var payload models.TexturePayload
 			if err := json.Unmarshal(decoded, &payload); err == nil {
 				for _, info := range payload.Textures {
 					parts := strings.Split(info.URL, "/textures/")
@@ -760,20 +729,77 @@ func (ts *TextureService) GetPreviewByFileName(fileName string) ([]byte, string,
 	return data, "image/webp", nil
 }
 
-func (ts *TextureService) GetTextures(profileID string) (map[string]TextureInfo, error) {
-	var prop models.ProfileProperty
-	if err := database.DB.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").First(&prop).Error; err != nil {
+func (ts *TextureService) GetTextures(profileID string) (map[string]models.TextureInfo, error) {
+	var props []models.ProfileProperty
+	if err := database.DB.Where("profile_id = ? AND name = ?", profileID, "textures").Find(&props).Error; err != nil {
 		return nil, err
 	}
 
-	ts.RewriteTexturesProperty(&prop)
+	textures := make(map[string]models.TextureInfo)
+	for _, prop := range props {
+		var payload models.TexturePayload
+		decoded, err := base64.StdEncoding.DecodeString(prop.Value)
+		if err != nil {
+			continue
+		}
+		if err := json.Unmarshal(decoded, &payload); err != nil {
+			continue
+		}
+		for k, v := range payload.Textures {
+			textures[k] = v
+		}
+	}
+	return textures, nil
+}
 
-	decoded, _ := base64.StdEncoding.DecodeString(prop.Value)
-	var payload TexturesPayload
-	if err := json.Unmarshal(decoded, &payload); err != nil {
+func (ts *TextureService) GetAccountTextureHistory(accountID int) ([]models.TextureRecord, error) {
+	var skins []models.TextureListSkin
+	var capes []models.TextureListCape
+
+	if err := database.DB.Where("account_id = ?", accountID).Order("created_at DESC").Limit(50).Find(&skins).Error; err != nil {
 		return nil, err
 	}
-	return payload.Textures, nil
+	if err := database.DB.Where("account_id = ?", accountID).Order("created_at DESC").Limit(50).Find(&capes).Error; err != nil {
+		return nil, err
+	}
+
+	records := make([]models.TextureRecord, 0, len(skins)+len(capes))
+	for _, s := range skins {
+		records = append(records, models.TextureRecord{
+			ID:          s.ID,
+			Hash:        s.Hash,
+			Type:        "skin",
+			AccountID:   s.AccountID,
+			Model:       s.Model,
+			Width:       s.Width,
+			Height:      s.Height,
+			FileName:    s.FileName,
+			PreviewFile: s.PreviewFile,
+			CreatedAt:   s.CreatedAt,
+			UpdatedAt:   s.UpdatedAt,
+		})
+	}
+	for _, c := range capes {
+		records = append(records, models.TextureRecord{
+			ID:          c.ID,
+			Hash:        c.Hash,
+			Type:        "cape",
+			AccountID:   c.AccountID,
+			Width:       c.Width,
+			Height:      c.Height,
+			FileName:    c.FileName,
+			PreviewFile: c.PreviewFile,
+			CreatedAt:   c.CreatedAt,
+			UpdatedAt:   c.UpdatedAt,
+		})
+	}
+
+	// Sort by CreatedAt DESC
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].CreatedAt.After(records[j].CreatedAt)
+	})
+
+	return records, nil
 }
 
 func (ts *TextureService) GeneratePreviewImage(fileData []byte, textureType, model string) ([]byte, error) {
@@ -885,42 +911,4 @@ func (ts *TextureService) fillScaledPixel(dst *image.NRGBA, startX, startY, size
 			dst.SetNRGBA(startX+x, startY+y, c)
 		}
 	}
-}
-
-func (ts *TextureService) NormalizeTags(tags string) string {
-	if strings.TrimSpace(tags) == "" {
-		return ""
-	}
-	replacer := strings.NewReplacer("，", ",", "\n", ",", "\r", ",", "\t", ",", ";", ",", "|", ",")
-	normalized := replacer.Replace(tags)
-	seen := make(map[string]struct{})
-	result := make([]string, 0)
-	for _, part := range strings.Split(normalized, ",") {
-		tag := strings.TrimSpace(part)
-		if tag == "" {
-			continue
-		}
-		if _, exists := seen[tag]; exists {
-			continue
-		}
-		seen[tag] = struct{}{}
-		result = append(result, tag)
-	}
-	return strings.Join(result, ",")
-}
-
-func (ts *TextureService) NormalizeTextureName(name string, maxLength int) string {
-	if maxLength <= 0 || utf8.RuneCountInString(name) <= maxLength {
-		return name
-	}
-	var builder strings.Builder
-	count := 0
-	for _, r := range name {
-		if count >= maxLength {
-			break
-		}
-		builder.WriteRune(r)
-		count++
-	}
-	return builder.String()
 }

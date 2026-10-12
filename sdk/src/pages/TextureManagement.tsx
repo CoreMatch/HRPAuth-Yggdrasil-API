@@ -6,7 +6,7 @@ import Delete from '@mui/icons-material/Delete';
 import Photo from '@mui/icons-material/Photo';
 
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
-import { BackendUrl, request, getAuthToken, dataCache } from '../utils/proxy';
+import { BackendUrl, request, dataCache } from '../utils/proxy';
 
 const SkinViewer3D = lazy(() => import('../components/SkinViewer3D'));
 

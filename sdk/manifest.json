@@ -12,6 +12,11 @@
       "path": "/texture-management",
       "module": "src/pages/TextureManagement",
       "title": "Texture Management"
+    },
+    {
+      "path": "/skinlib",
+      "module": "src/pages/Skinlib",
+      "title": "Skin Library"
     }
   ],
   "menu": {

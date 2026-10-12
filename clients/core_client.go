@@ -2,29 +2,29 @@ package clients
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
+	"github.com/lnb/HRPAuth-Yggdrasil-API/utils"
 )
 
 type CoreClient struct {
-	BaseURL     string
-	InternalKey string
-	HTTPClient  *http.Client
+	BaseURL    string
+	HTTPClient *http.Client
 }
 
 func NewCoreClient() *CoreClient {
+	apiClient := utils.GetCoreAPIClient()
+	httpClient, _ := apiClient.GetClient(context.Background())
+
 	return &CoreClient{
-		BaseURL:     config.AppConfig.CoreAPI.BaseURL,
-		InternalKey: config.AppConfig.CoreAPI.InternalKey,
-		HTTPClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		BaseURL:    config.AppConfig.CoreAPI.BaseURL,
+		HTTPClient: httpClient,
 	}
 }
 
@@ -44,7 +44,6 @@ func (c *CoreClient) doRequest(method, path string, body interface{}, result int
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Internal-Key", c.InternalKey)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

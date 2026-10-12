@@ -21,7 +21,7 @@ func NewInternalController() *InternalController {
 
 func (ic *InternalController) SyncUsername(c *gin.Context) {
 	internalKey := c.GetHeader("X-Internal-Key")
-	if config.AppConfig.CoreAPI.InternalKey == "" || internalKey != config.AppConfig.CoreAPI.InternalKey {
+	if config.AppConfig.Runtime.InternalKey == "" || internalKey != config.AppConfig.Runtime.InternalKey {
 		log.Printf("[YGG-BIZ] request_id=%s action=sync_username result=bad_internal_key status=%d", c.GetString("request_id"), http.StatusUnauthorized)
 		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid internal key")
 		return
@@ -48,7 +48,7 @@ func (ic *InternalController) SyncUsername(c *gin.Context) {
 
 func (ic *InternalController) ProxyRegister(c *gin.Context) {
 	internalKey := c.GetHeader("X-Internal-Key")
-	if config.AppConfig.CoreAPI.InternalKey == "" || internalKey != config.AppConfig.CoreAPI.InternalKey {
+	if config.AppConfig.Runtime.InternalKey == "" || internalKey != config.AppConfig.Runtime.InternalKey {
 		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid internal key")
 		return
 	}
@@ -79,7 +79,7 @@ func (ic *InternalController) ProxyRegister(c *gin.Context) {
 
 func (ic *InternalController) ClaimAccount(c *gin.Context) {
 	internalKey := c.GetHeader("X-Internal-Key")
-	if config.AppConfig.CoreAPI.InternalKey == "" || internalKey != config.AppConfig.CoreAPI.InternalKey {
+	if config.AppConfig.Runtime.InternalKey == "" || internalKey != config.AppConfig.Runtime.InternalKey {
 		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid internal key")
 		return
 	}
@@ -105,7 +105,7 @@ func (ic *InternalController) ClaimAccount(c *gin.Context) {
 
 func (ic *InternalController) DeleteAccount(c *gin.Context) {
 	internalKey := c.GetHeader("X-Internal-Key")
-	if config.AppConfig.CoreAPI.InternalKey == "" || internalKey != config.AppConfig.CoreAPI.InternalKey {
+	if config.AppConfig.Runtime.InternalKey == "" || internalKey != config.AppConfig.Runtime.InternalKey {
 		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid internal key")
 		return
 	}
@@ -130,7 +130,7 @@ func (ic *InternalController) DeleteAccount(c *gin.Context) {
 
 func (ic *InternalController) InvalidateTokens(c *gin.Context) {
 	internalKey := c.GetHeader("X-Internal-Key")
-	if config.AppConfig.CoreAPI.InternalKey == "" || internalKey != config.AppConfig.CoreAPI.InternalKey {
+	if config.AppConfig.Runtime.InternalKey == "" || internalKey != config.AppConfig.Runtime.InternalKey {
 		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid internal key")
 		return
 	}

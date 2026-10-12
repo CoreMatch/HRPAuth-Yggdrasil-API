@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-        "github.com/lnb/HRPAuth-Yggdrasil-API/clients"
+	"github.com/lnb/HRPAuth-Yggdrasil-API/clients"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"gopkg.in/yaml.v3"
 )
@@ -72,8 +72,8 @@ func TestBuildDefaultConfigIncludesDecoupledDefaults(t *testing.T) {
 	if !ok {
 		t.Fatal("core_api section missing from default config")
 	}
-	if key, _ := coreAPI["internal_key"].(string); len(key) != 64 {
-		t.Fatalf("expected generated core_api internal_key, got %q", key)
+	if key, _ := coreAPI["internal_key"].(string); key != "" {
+		t.Fatalf("expected no static internal_key in default config, got %q", key)
 	}
 
 	yggdrasil, ok := cfg["yggdrasil"].(map[string]interface{})
@@ -101,27 +101,27 @@ func TestBuildDefaultConfigIncludesDecoupledDefaults(t *testing.T) {
 }
 
 func TestBuildRelayRulesAddsPrefixToAllDestinations(t *testing.T) {
-        got := buildRelayRules("http://localhost:2770/")
-        want := []clients.RelayRule{
-                {Dest: "/yggdrasil-api/authserver", Source: "http://localhost:2770/authserver"},
-                {Dest: "/yggdrasil-api/sessionserver", Source: "http://localhost:2770/sessionserver"},
-                {Dest: "/yggdrasil-api/api/profiles/minecraft", Source: "http://localhost:2770/api/profiles/minecraft"},
-                {Dest: "/yggdrasil-api/textures", Source: "http://localhost:2770/textures"},
-                {Dest: "/yggdrasil-api/previews", Source: "http://localhost:2770/previews"},
-                {Dest: "/yggdrasil-api/texture", Source: "http://localhost:2770/texture"},
-                {Dest: "/yggdrasil-api/skin", Source: "http://localhost:2770/skin"},
-                {Dest: "/yggdrasil-api/skins", Source: "http://localhost:2770/skins"},
-                {Dest: "/yggdrasil-api/minecraftservices", Source: "http://localhost:2770/minecraftservices"},
-                {Dest: "/yggdrasil-api/register", Source: "http://localhost:2770/register"},
-        }
+	got := buildRelayRules("http://localhost:2770/", "/yggdrasil-api")
+	want := []clients.RelayRule{
+		{Dest: "/yggdrasil-api/authserver", Source: "http://localhost:2770/authserver"},
+		{Dest: "/yggdrasil-api/sessionserver", Source: "http://localhost:2770/sessionserver"},
+		{Dest: "/yggdrasil-api/api/profiles/minecraft", Source: "http://localhost:2770/api/profiles/minecraft"},
+		{Dest: "/yggdrasil-api/textures", Source: "http://localhost:2770/textures"},
+		{Dest: "/yggdrasil-api/previews", Source: "http://localhost:2770/previews"},
+		{Dest: "/yggdrasil-api/texture", Source: "http://localhost:2770/texture"},
+		{Dest: "/yggdrasil-api/skin", Source: "http://localhost:2770/skin"},
+		{Dest: "/yggdrasil-api/skins", Source: "http://localhost:2770/skins"},
+		{Dest: "/yggdrasil-api/minecraftservices", Source: "http://localhost:2770/minecraftservices"},
+		{Dest: "/yggdrasil-api/register", Source: "http://localhost:2770/register"},
+	}
 
-        if len(got) != len(want) {
-                t.Fatalf("expected %d relay rules, got %d", len(want), len(got))
-        }
+	if len(got) != len(want) {
+		t.Fatalf("expected %d relay rules, got %d", len(want), len(got))
+	}
 
-        for i := range want {
-                if got[i] != want[i] {
-                        t.Fatalf("expected relay %d to be %+v, got %+v", i, want[i], got[i])
-                }
-        }
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected relay %d to be %+v, got %+v", i, want[i], got[i])
+		}
+	}
 }

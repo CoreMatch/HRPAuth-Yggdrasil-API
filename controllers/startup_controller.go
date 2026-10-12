@@ -98,7 +98,6 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 		},
 		"core_api": map[string]interface{}{
 			"base_url":      "http://localhost:2778",
-			"internal_key":  sc.generateManageToken(),
 			"client_id":     "",
 			"client_secret": "",
 		},
@@ -206,7 +205,7 @@ func (sc *StartupController) checkAndMigrateConfig(path string) error {
 		return fmt.Errorf("failed to backup config file: %v", err)
 	}
 
-	migrated, changed, err := config.MigrateConfig(currentConfig, sc.generateManageToken)
+	migrated, changed, err := config.MigrateConfig(currentConfig, func() string { return utils.GenerateRandomToken(32) })
 	if err != nil {
 		return fmt.Errorf("failed to migrate config: %v", err)
 	}
@@ -321,10 +320,6 @@ func (sc *StartupController) generatePseudoKeys(publicKeyPath, privateKeyPath st
 // generateManageToken produces a random 32-byte (64 hex chars) Manage Token.
 // It is generated once at config-file creation time and persisted to
 // config.yaml under `manage.token`.
-func (sc *StartupController) generateManageToken() string {
-	return utils.GenerateRandomToken(32)
-}
-
 func (sc *StartupController) generateRandomString(length int) string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 	b := make([]byte, length)
@@ -563,6 +558,30 @@ func (sc *StartupController) FetchMetadata() error {
 	config.AppConfig.Runtime.SiteURL = meta.Site.URL
 	config.AppConfig.Runtime.FrontendURL = meta.Yggdrasil.Meta.Links.Homepage
 	log.Printf("Fetched runtime config: SiteURL=%s, FrontendURL=%s", config.AppConfig.Runtime.SiteURL, config.AppConfig.Runtime.FrontendURL)
+	return sc.FetchInternalKey()
+}
+
+func (sc *StartupController) FetchInternalKey() error {
+	coreAPIClient := utils.GetCoreAPIClient()
+	if coreAPIClient == nil {
+		log.Println("Internal key fetch skipped: CoreAPI client not configured")
+		return nil
+	}
+
+	client, err := coreAPIClient.GetClient(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to get CoreAPI client: %v", err)
+	}
+
+	var resp struct {
+		Key string `json:"internal_key"`
+	}
+	if err := sc.doJSONRequest(client, "POST", config.AppConfig.CoreAPI.BaseURL+"/services/auth-key", nil, &resp); err != nil {
+		return fmt.Errorf("failed to fetch temporary internal key: %v", err)
+	}
+
+	config.AppConfig.Runtime.InternalKey = resp.Key
+	log.Println("Temporary internal key fetched successfully")
 	return nil
 }
 

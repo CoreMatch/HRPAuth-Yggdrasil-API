@@ -21,9 +21,29 @@ type ConfigMigration struct {
 //
 // History:
 //   - "1": initial decoupled Yggdrasil-API service config
+//   - "2": remove static internal_key and add relay_path_prefix
 func configMigrations() []ConfigMigration {
 	return []ConfigMigration{
-		// New service, no migrations yet
+		{
+			FromVersion: "1",
+			ToVersion:   "2",
+			Migrate: func(cfg map[string]interface{}, tokenGen func() string) error {
+				// 1. Remove internal_key from core_api
+				if coreAPI, ok := cfg["core_api"].(map[string]interface{}); ok {
+					delete(coreAPI, "internal_key")
+				}
+
+				// 2. Add relay_path_prefix to microservice
+				if ms, ok := cfg["microservice"].(map[string]interface{}); ok {
+					if ms["relay_path_prefix"] == nil {
+						ms["relay_path_prefix"] = "/yggdrasil-api"
+					}
+				}
+
+				cfg["version"] = "2"
+				return nil
+			},
+		},
 	}
 }
 

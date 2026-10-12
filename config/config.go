@@ -25,6 +25,7 @@ type Config struct {
 	Runtime struct {
 		SiteURL     string
 		FrontendURL string
+		InternalKey string // Temporary internal key for main service -> microservice auth
 	}
 }
 
@@ -46,7 +47,6 @@ type SecurityConfig struct {
 
 type CoreAPIConfig struct {
 	BaseURL      string
-	InternalKey  string
 	ClientID     string
 	ClientSecret string
 }
@@ -127,7 +127,7 @@ const DefaultRelayPathPrefix = "/yggdrasil-api"
 
 var ConfigFileDir = "./"
 
-const ConfigVersion = "1" // New baseline version
+const ConfigVersion = "2" // Dynamic internal key and relay path prefix support
 
 func init() {
 	// Try to get the directory of the executable
@@ -246,7 +246,6 @@ func parseCoreAPIConfig(config map[string]interface{}) CoreAPIConfig {
 	core, _ := config["core_api"].(map[string]interface{})
 	return CoreAPIConfig{
 		BaseURL:      getString(core, "base_url"),
-		InternalKey:  getString(core, "internal_key"),
 		ClientID:     getString(core, "client_id"),
 		ClientSecret: getString(core, "client_secret"),
 	}

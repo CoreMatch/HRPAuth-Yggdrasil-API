@@ -154,6 +154,9 @@ func main() {
 	r.GET("/skin/:username", yggdrasilCtrl.LegacySkin)
 	r.GET("/skins/MinecraftSkins/:username", yggdrasilCtrl.LegacySkin)
 
+	// Serve SDK files
+	r.Static("/sdk", "./sdk")
+
 	minecraftServices := r.Group("/minecraftservices")
 	{
 		minecraftServices.POST("/player/certificates", yggdrasilCtrl.PlayerCertificates)

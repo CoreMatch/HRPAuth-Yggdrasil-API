@@ -612,6 +612,7 @@ func (sc *StartupController) RegisterService() error {
 		Name:          cfg.Name,
 		TTLSeconds:    cfg.TTLSeconds,
 		SecurityLevel: 0, // Level 0 to allow anonymous relay for Yggdrasil
+		SDKURL:        strings.TrimRight(cfg.RelayURL, "/") + "/sdk/manifest.json",
 		RootMetadata: map[string]interface{}{
 			"yggdrasil": yggMeta,
 		},
@@ -656,6 +657,7 @@ func buildRelayRules(base string, prefix string) []clients.RelayRule {
 		"/skins",
 		"/minecraftservices",
 		"/register",
+		"/sdk",
 	}
 
 	relays := make([]clients.RelayRule, 0, len(paths))

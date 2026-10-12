@@ -39,11 +39,11 @@ func NewTextureService() *TextureService {
 }
 
 const (
-	previewScale        = 8
-	maxTextureNameLen   = 20
-	defaultSkinModel    = "default"
-	texturesSubDir      = "textures"
-	previewsSubDir      = "previews"
+	previewScale      = 8
+	maxTextureNameLen = 20
+	defaultSkinModel  = "default"
+	texturesSubDir    = "textures"
+	previewsSubDir    = "previews"
 )
 
 type TextureInfo struct {
@@ -88,7 +88,7 @@ func (ts *TextureService) ValidateTexture(file io.Reader, textureType string, mo
 	}
 
 	reader := bytes.NewReader(data)
-        _, format, err := image.DecodeConfig(reader)
+	_, format, err := image.DecodeConfig(reader)
 	if err != nil {
 		return nil, fmt.Errorf("invalid image format: %v", err)
 	}
@@ -255,13 +255,30 @@ func (ts *TextureService) GetTexturePath(hash string) (string, error) {
 	return filePath, nil
 }
 
+func (ts *TextureService) GetEffectiveCallbackURL() string {
+	// If callback URL is explicitly configured, use it
+	if config.AppConfig.Callback.URL != "" {
+		return strings.TrimRight(config.AppConfig.Callback.URL, "/")
+	}
+
+	// Otherwise, automatically construct it: SiteURL + RelayPathPrefix
+	siteURL := strings.TrimRight(config.AppConfig.Runtime.SiteURL, "/")
+	prefix := config.AppConfig.Microservice.RelayPathPrefix
+	if prefix == "" {
+		prefix = config.DefaultRelayPathPrefix
+	}
+	prefix = "/" + strings.Trim(prefix, "/")
+
+	return siteURL + prefix
+}
+
 func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, model, name, description, tags string, fileData []byte) ([]string, error) {
 	token := NewAuthService().ValidateToken(accessToken, "")
 	if token == nil {
 		return nil, fmt.Errorf("invalid access token")
 	}
 
-        if !NewAuthService().IsProfileOwnedByAccount(profileID, token.AccountID) {
+	if !NewAuthService().IsProfileOwnedByAccount(profileID, token.AccountID) {
 		return nil, fmt.Errorf("profile not owned by user")
 	}
 
@@ -289,18 +306,15 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 	}
 
 	// Update profile active texture
-	callbackURL := config.AppConfig.Callback.URL
-	if callbackURL == "" {
-		callbackURL = config.AppConfig.Runtime.SiteURL
-	}
-	textureURL := strings.TrimRight(callbackURL, "/") + "/textures/" + hash
+	callbackURL := ts.GetEffectiveCallbackURL()
+	textureURL := callbackURL + "/textures/" + hash
 
 	if err := ts.UpdateProfileTexture(profileID, textureType, textureURL, model); err != nil {
 		return nil, err
 	}
 
 	// Save to texture library
-        if err := ts.UpsertTextureRecord(token.AccountID, textureType, hash, model, name, description, tags, validated.Width, validated.Height, previewFileName); err != nil {
+	if err := ts.UpsertTextureRecord(token.AccountID, textureType, hash, model, name, description, tags, validated.Width, validated.Height, previewFileName); err != nil {
 		log.Printf("Warning: failed to upsert texture record: %v", err)
 	}
 
@@ -336,11 +350,11 @@ func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, 
 			return database.DB.Create(&newSkin).Error
 		} else if err == nil {
 			return database.DB.Model(&existing).Updates(map[string]interface{}{
-				"model":        model,
-				"previewfile":  previewFile,
-				"name":         normalizedName,
-				"description":  description,
-				"tags":         normalizedTags,
+				"model":       model,
+				"previewfile": previewFile,
+				"name":        normalizedName,
+				"description": description,
+				"tags":        normalizedTags,
 			}).Error
 		}
 		return err
@@ -361,10 +375,10 @@ func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, 
 			return database.DB.Create(&newCape).Error
 		} else if err == nil {
 			return database.DB.Model(&existing).Updates(map[string]interface{}{
-				"previewfile":  previewFile,
-				"name":         normalizedName,
-				"description":  description,
-				"tags":         normalizedTags,
+				"previewfile": previewFile,
+				"name":        normalizedName,
+				"description": description,
+				"tags":        normalizedTags,
 			}).Error
 		}
 		return err
@@ -546,6 +560,56 @@ func (ts *TextureService) SignTextureValue(value string) (string, error) {
 	return base64.StdEncoding.EncodeToString(signature), nil
 }
 
+func (ts *TextureService) RewriteTexturesProperty(prop *models.ProfileProperty) error {
+	if prop.Name != "textures" {
+		return nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(prop.Value)
+	if err != nil {
+		return err
+	}
+
+	var payload TexturesPayload
+	if err := json.Unmarshal(decoded, &payload); err != nil {
+		return err
+	}
+
+	callbackURL := ts.GetEffectiveCallbackURL()
+	changed := false
+
+	for k, info := range payload.Textures {
+		// Check if it's a local texture URL (contains /textures/)
+		if strings.Contains(info.URL, "/textures/") {
+			parts := strings.Split(info.URL, "/textures/")
+			hash := parts[len(parts)-1]
+			newURL := callbackURL + "/textures/" + hash
+			if info.URL != newURL {
+				info.URL = newURL
+				payload.Textures[k] = info
+				changed = true
+			}
+		}
+	}
+
+	if changed {
+		newJSON, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		newValue := base64.StdEncoding.EncodeToString(newJSON)
+		prop.Value = newValue
+		// Re-sign
+		signature, err := ts.SignTextureValue(newValue)
+		if err != nil {
+			return err
+		}
+		prop.Signature = signature
+	}
+
+	return nil
+}
+
 func (ts *TextureService) GetProfileProperties(profileID string, profileName string, unsigned bool) ([]models.ProfileProperty, error) {
 	var props []models.ProfileProperty
 	result := database.DB.
@@ -554,6 +618,12 @@ func (ts *TextureService) GetProfileProperties(profileID string, profileName str
 
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to get profile properties: %v", result.Error)
+	}
+
+	for i := range props {
+		if props[i].Name == "textures" {
+			ts.RewriteTexturesProperty(&props[i])
+		}
 	}
 
 	hasUploadable := false
@@ -695,6 +765,9 @@ func (ts *TextureService) GetTextures(profileID string) (map[string]TextureInfo,
 	if err := database.DB.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").First(&prop).Error; err != nil {
 		return nil, err
 	}
+
+	ts.RewriteTexturesProperty(&prop)
+
 	decoded, _ := base64.StdEncoding.DecodeString(prop.Value)
 	var payload TexturesPayload
 	if err := json.Unmarshal(decoded, &payload); err != nil {

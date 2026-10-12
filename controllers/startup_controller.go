@@ -35,7 +35,6 @@ type StartupController struct{}
 
 const ConfigFileName = "config.yaml"
 const schemaMigrationService = "Yggdrasil-API"
-const relayPathPrefix = "/yggdrasil-api"
 
 func NewStartupController() *StartupController {
 	return &StartupController{}
@@ -77,9 +76,10 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"url": "http://localhost:2770",
 		},
 		"microservice": map[string]interface{}{
-			"name":        "HRPAuth-Yggdrasil-API",
-			"ttl_seconds": 120,
-			"relay_url":   "http://localhost:2770",
+			"name":              "HRPAuth-Yggdrasil-API",
+			"ttl_seconds":       120,
+			"relay_url":         "http://localhost:2770",
+			"relay_path_prefix": config.DefaultRelayPathPrefix,
 		},
 		"database": map[string]interface{}{
 			"host":         "127.0.0.1",
@@ -598,7 +598,11 @@ func (sc *StartupController) RegisterService() error {
 
 	// 2. Register Relay Rules
 	base := strings.TrimRight(cfg.RelayURL, "/")
-        relays := buildRelayRules(base)
+	prefix := cfg.RelayPathPrefix
+	if prefix == "" {
+		prefix = config.DefaultRelayPathPrefix
+	}
+	relays := buildRelayRules(base, prefix)
 
 	relayReq := clients.RelayRequest{
 		Name:   cfg.Name,
@@ -612,29 +616,30 @@ func (sc *StartupController) RegisterService() error {
 	return nil
 }
 
-func buildRelayRules(base string) []clients.RelayRule {
-        base = strings.TrimRight(base, "/")
-        paths := []string{
-                "/authserver",
-                "/sessionserver",
-                "/api/profiles/minecraft",
-                "/textures",
-                "/previews",
-                "/texture",
-                "/skin",
-                "/skins",
-                "/minecraftservices",
-                "/register",
-        }
+func buildRelayRules(base string, prefix string) []clients.RelayRule {
+	base = strings.TrimRight(base, "/")
+	prefix = strings.TrimRight(prefix, "/")
+	paths := []string{
+		"/authserver",
+		"/sessionserver",
+		"/api/profiles/minecraft",
+		"/textures",
+		"/previews",
+		"/texture",
+		"/skin",
+		"/skins",
+		"/minecraftservices",
+		"/register",
+	}
 
-        relays := make([]clients.RelayRule, 0, len(paths))
-        for _, path := range paths {
-                relays = append(relays, clients.RelayRule{
-                        Dest:   relayPathPrefix + path,
-                        Source: base + path,
-                })
-        }
-        return relays
+	relays := make([]clients.RelayRule, 0, len(paths))
+	for _, path := range paths {
+		relays = append(relays, clients.RelayRule{
+			Dest:   prefix + path,
+			Source: base + path,
+		})
+	}
+	return relays
 }
 
 func (sc *StartupController) doJSONRequest(client *http.Client, method, url string, body, result interface{}) error {

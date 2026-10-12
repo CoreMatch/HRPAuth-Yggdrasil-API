@@ -33,9 +33,10 @@ type CallbackConfig struct {
 }
 
 type MicroserviceConfig struct {
-	Name       string
-	TTLSeconds int
-	RelayURL   string // The external URL of this service that HRPAuth can reach
+	Name            string
+	TTLSeconds      int
+	RelayURL        string // The external URL of this service that HRPAuth can reach
+	RelayPathPrefix string // The path prefix on the Core side that relays to this service
 }
 
 type SecurityConfig struct {
@@ -122,6 +123,7 @@ type FeatureFlagsConfig struct {
 }
 
 const ConfigFileName = "config.yaml"
+const DefaultRelayPathPrefix = "/yggdrasil-api"
 
 var ConfigFileDir = "./"
 
@@ -370,9 +372,10 @@ func parseSecurityConfig(config map[string]interface{}) SecurityConfig {
 func parseMicroserviceConfig(config map[string]interface{}) MicroserviceConfig {
 	ms, _ := config["microservice"].(map[string]interface{})
 	return MicroserviceConfig{
-		Name:       getString(ms, "name"),
-		TTLSeconds: getInt(ms, "ttl_seconds"),
-		RelayURL:   getString(ms, "relay_url"),
+		Name:            getString(ms, "name"),
+		TTLSeconds:      getInt(ms, "ttl_seconds"),
+		RelayURL:        getString(ms, "relay_url"),
+		RelayPathPrefix: getString(ms, "relay_path_prefix"),
 	}
 }
 

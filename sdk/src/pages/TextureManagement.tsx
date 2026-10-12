@@ -6,17 +6,11 @@ import Delete from '@mui/icons-material/Delete';
 import Photo from '@mui/icons-material/Photo';
 
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
-import { BackendUrl, request, dataCache } from '../utils/proxy';
+import { BackendUrl, request } from '../utils/proxy';
 
 const SkinViewer3D = lazy(() => import('../components/SkinViewer3D'));
 
 type TextureType = 'skin' | 'cape';
-
-interface TextureInfo {
-  texture_type: string;
-  url: string;
-  model?: string;
-}
 
 function normalizeTextureUrl(url: string): string {
   if (!url) return url;

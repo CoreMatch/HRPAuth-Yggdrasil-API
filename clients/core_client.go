@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
@@ -135,4 +138,67 @@ func (c *CoreClient) GetMetadata() (*CoreMetadata, error) {
 		return nil, err
 	}
 	return &meta, nil
+}
+
+// ErrSDKPackageConflict is returned when a package with the same name already exists (409).
+var ErrSDKPackageConflict = errors.New("sdk package conflict")
+
+func (c *CoreClient) UploadSDKPackage(data []byte, filename string) error {
+	url := c.BaseURL + "/services/sdk-packages"
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, err := mw.CreateFormFile("package", filename)
+	if err != nil {
+		return err
+	}
+	if _, err := fw.Write(data); err != nil {
+		return err
+	}
+	if err := mw.Close(); err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusConflict {
+		return ErrSDKPackageConflict
+	}
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return nil
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("upstream returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+}
+
+func (c *CoreClient) DeleteSDKPackage(name string) error {
+	url := c.BaseURL + "/services/sdk-packages/" + name
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("upstream returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
 }

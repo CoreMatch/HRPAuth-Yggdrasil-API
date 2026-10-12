@@ -1,6 +1,8 @@
 package main
 
 import (
+	"embed"
+	"io/fs"
 	"log"
 	"net/http"
 	"strings"
@@ -12,6 +14,14 @@ import (
 	"github.com/lnb/HRPAuth-Yggdrasil-API/database"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/redis"
 )
+
+//go:embed sdk/*
+var sdkFS embed.FS
+
+// GetSDKFS returns the embedded SDK file system.
+func GetSDKFS() embed.FS {
+	return sdkFS
+}
 
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -154,8 +164,9 @@ func main() {
 	r.GET("/skin/:username", yggdrasilCtrl.LegacySkin)
 	r.GET("/skins/MinecraftSkins/:username", yggdrasilCtrl.LegacySkin)
 
-	// Serve SDK files
-	r.Static("/sdk", "./sdk")
+	// Serve SDK files from embedded FS
+	sdkSub, _ := fs.Sub(sdkFS, "sdk")
+	r.StaticFS("/sdk", http.FS(sdkSub))
 
 	minecraftServices := r.Group("/minecraftservices")
 	{
@@ -177,6 +188,8 @@ func main() {
 		if err := startupCtrl.RegisterService(); err != nil {
 			log.Printf("Warning: Microservice registration failed: %v", err)
 		}
+		// Upload SDK package (imitating haskinproxy success)
+		startupCtrl.UploadSDKPackage(sdkFS)
 	}()
 
 	log.Printf("HRPAuth Yggdrasil API Provider listening on %s", config.AppConfig.Server.Port)

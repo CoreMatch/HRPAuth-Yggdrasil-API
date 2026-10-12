@@ -612,7 +612,10 @@ func (sc *StartupController) RegisterService() error {
 		Name:          cfg.Name,
 		TTLSeconds:    cfg.TTLSeconds,
 		SecurityLevel: 0, // Level 0 to allow anonymous relay for Yggdrasil
-		SDKURL:        strings.TrimRight(cfg.RelayURL, "/") + "/sdk/manifest.json",
+		Scope: &clients.PresenceScope{
+			Name:          "yggdrasil-api",
+			FrontendAreas: []string{"webui-dash"},
+		},
 		RootMetadata: map[string]interface{}{
 			"yggdrasil": yggMeta,
 		},

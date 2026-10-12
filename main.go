@@ -124,6 +124,7 @@ func main() {
 	r.POST("/internal/sync-username", internalCtrl.SyncUsername)
 	r.POST("/internal/proxy-register", internalCtrl.ProxyRegister)
 	r.POST("/internal/claim-account", internalCtrl.ClaimAccount)
+	r.GET("/internal/heartbeat", internalCtrl.Heartbeat)
 	r.POST("/internal/delete-account", internalCtrl.DeleteAccount)
 	r.POST("/internal/invalidate-tokens", internalCtrl.InvalidateTokens)
 

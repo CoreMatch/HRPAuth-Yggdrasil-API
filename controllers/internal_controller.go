@@ -19,6 +19,15 @@ func NewInternalController() *InternalController {
 	}
 }
 
+func (ic *InternalController) Heartbeat(c *gin.Context) {
+	internalKey := c.GetHeader("X-Internal-Key")
+	if config.AppConfig.Runtime.InternalKey == "" || internalKey != config.AppConfig.Runtime.InternalKey {
+		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid internal key")
+		return
+	}
+	respondOK(c, "I am alive", nil)
+}
+
 func (ic *InternalController) SyncUsername(c *gin.Context) {
 	internalKey := c.GetHeader("X-Internal-Key")
 	if config.AppConfig.Runtime.InternalKey == "" || internalKey != config.AppConfig.Runtime.InternalKey {

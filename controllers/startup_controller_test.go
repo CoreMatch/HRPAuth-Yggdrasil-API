@@ -53,10 +53,10 @@ yggdrasil:
 	}
 
 	if cfg["version"] != config.ConfigVersion {
-		t.Fatalf("expected version %s after check, got %v", config.ConfigVersion, cfg["version"])
+		t.Fatalf("expected version %s after migration, got %v", config.ConfigVersion, cfg["version"])
 	}
-	if _, err := os.Stat(path + ".bak.1"); !os.IsNotExist(err) {
-		t.Errorf("expected no backup for up-to-date config, got err=%v", err)
+	if _, err := os.Stat(path + ".bak.1"); err != nil {
+		t.Errorf("expected backup file for version 1 migration, got err=%v", err)
 	}
 }
 

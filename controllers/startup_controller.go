@@ -558,7 +558,7 @@ func (sc *StartupController) FetchMetadata() error {
 	config.AppConfig.Runtime.SiteURL = meta.Site.URL
 	config.AppConfig.Runtime.FrontendURL = meta.Yggdrasil.Meta.Links.Homepage
 	log.Printf("Fetched runtime config: SiteURL=%s, FrontendURL=%s", config.AppConfig.Runtime.SiteURL, config.AppConfig.Runtime.FrontendURL)
-	return sc.FetchInternalKey()
+	return nil
 }
 
 func (sc *StartupController) FetchInternalKey() error {
@@ -573,10 +573,13 @@ func (sc *StartupController) FetchInternalKey() error {
 		return fmt.Errorf("failed to get CoreAPI client: %v", err)
 	}
 
+	reqBody := map[string]string{
+		"name": config.AppConfig.Microservice.Name,
+	}
 	var resp struct {
 		Key string `json:"internal_key"`
 	}
-	if err := sc.doJSONRequest(client, "POST", config.AppConfig.CoreAPI.BaseURL+"/services/auth-key", nil, &resp); err != nil {
+	if err := sc.doJSONRequest(client, "POST", config.AppConfig.CoreAPI.BaseURL+"/services/auth-key", reqBody, &resp); err != nil {
 		return fmt.Errorf("failed to fetch temporary internal key: %v", err)
 	}
 
@@ -632,7 +635,7 @@ func (sc *StartupController) RegisterService() error {
 	}
 	log.Printf("Microservice relay rules registered for %d paths", len(relays))
 
-	return nil
+	return sc.FetchInternalKey()
 }
 
 func buildRelayRules(base string, prefix string) []clients.RelayRule {

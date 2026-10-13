@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -21,7 +20,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -39,10 +37,9 @@ func NewTextureService() *TextureService {
 }
 
 const (
-	previewScale     = 8
-	defaultSkinModel = "default"
-	texturesSubDir   = "textures"
-	previewsSubDir   = "previews"
+	previewScale   = 8
+	texturesSubDir = "textures"
+	previewsSubDir = "previews"
 )
 
 type TextureValidationResult struct {
@@ -300,59 +297,8 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 		return nil, err
 	}
 
-	// Save to texture library (upload history)
-	if err := ts.UpsertTextureRecord(token.AccountID, textureType, hash, model, validated.Width, validated.Height, previewFileName); err != nil {
-		log.Printf("Warning: failed to upsert texture record: %v", err)
-	}
-
 	warnings := append(validated.Notices, validated.Warnings...)
 	return warnings, nil
-}
-
-func (ts *TextureService) UpsertTextureRecord(accountID int, textureType, hash, model string, width, height int, previewFile string) error {
-	switch textureType {
-	case "skin":
-		var existing models.TextureListSkin
-		err := database.DB.Where("account_id = ? AND hash = ?", accountID, hash).First(&existing).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			newSkin := models.TextureListSkin{
-				TextureListSkinBase: models.TextureListSkinBase{
-					Hash:        hash,
-					AccountID:   accountID,
-					Model:       model,
-					Width:       width,
-					Height:      height,
-					PreviewFile: previewFile,
-				},
-			}
-			return database.DB.Create(&newSkin).Error
-		} else if err == nil {
-			return database.DB.Model(&existing).Updates(map[string]interface{}{
-				"model":       model,
-				"previewfile": previewFile,
-			}).Error
-		}
-		return err
-	case "cape":
-		var existing models.TextureListCape
-		err := database.DB.Where("account_id = ? AND hash = ?", accountID, hash).First(&existing).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			newCape := models.TextureListCape{
-				Hash:        hash,
-				AccountID:   accountID,
-				Width:       width,
-				Height:      height,
-				PreviewFile: previewFile,
-			}
-			return database.DB.Create(&newCape).Error
-		} else if err == nil {
-			return database.DB.Model(&existing).Updates(map[string]interface{}{
-				"previewfile": previewFile,
-			}).Error
-		}
-		return err
-	}
-	return fmt.Errorf("invalid texture type: %s", textureType)
 }
 
 func (ts *TextureService) UpdateProfileTexture(profileID, textureType, textureURL, model string) error {
@@ -750,56 +696,6 @@ func (ts *TextureService) GetTextures(profileID string) (map[string]models.Textu
 		}
 	}
 	return textures, nil
-}
-
-func (ts *TextureService) GetAccountTextureHistory(accountID int) ([]models.TextureRecord, error) {
-	var skins []models.TextureListSkin
-	var capes []models.TextureListCape
-
-	if err := database.DB.Where("account_id = ?", accountID).Order("created_at DESC").Limit(50).Find(&skins).Error; err != nil {
-		return nil, err
-	}
-	if err := database.DB.Where("account_id = ?", accountID).Order("created_at DESC").Limit(50).Find(&capes).Error; err != nil {
-		return nil, err
-	}
-
-	records := make([]models.TextureRecord, 0, len(skins)+len(capes))
-	for _, s := range skins {
-		records = append(records, models.TextureRecord{
-			ID:          s.ID,
-			Hash:        s.Hash,
-			Type:        "skin",
-			AccountID:   s.AccountID,
-			Model:       s.Model,
-			Width:       s.Width,
-			Height:      s.Height,
-			FileName:    s.FileName,
-			PreviewFile: s.PreviewFile,
-			CreatedAt:   s.CreatedAt,
-			UpdatedAt:   s.UpdatedAt,
-		})
-	}
-	for _, c := range capes {
-		records = append(records, models.TextureRecord{
-			ID:          c.ID,
-			Hash:        c.Hash,
-			Type:        "cape",
-			AccountID:   c.AccountID,
-			Width:       c.Width,
-			Height:      c.Height,
-			FileName:    c.FileName,
-			PreviewFile: c.PreviewFile,
-			CreatedAt:   c.CreatedAt,
-			UpdatedAt:   c.UpdatedAt,
-		})
-	}
-
-	// Sort by CreatedAt DESC
-	sort.Slice(records, func(i, j int) bool {
-		return records[i].CreatedAt.After(records[j].CreatedAt)
-	})
-
-	return records, nil
 }
 
 func (ts *TextureService) GeneratePreviewImage(fileData []byte, textureType, model string) ([]byte, error) {

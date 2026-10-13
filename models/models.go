@@ -106,59 +106,6 @@ func (ProfileProperty) TableName() string {
 	return config.AppConfig.Database.TablePrefix + "profile_properties"
 }
 
-// TextureListSkinBase is the base for skin/cape texture library records.
-type TextureListSkinBase struct {
-	ID          uint      `gorm:"primaryKey;autoIncrement;column:id"`
-	Hash        string    `gorm:"type:varchar(64);column:hash;uniqueIndex:uk_texture_list_account_hash,priority:2"`
-	AccountID   int       `gorm:"column:account_id;index:idx_texture_list_account;uniqueIndex:uk_texture_list_account_hash,priority:1"`
-	Model       string    `gorm:"type:enum('default','slim');default:'default';column:model"`
-	Width       int       `gorm:"not null;default:0;column:width"`
-	Height      int       `gorm:"not null;default:0;column:height"`
-	FileName    string    `gorm:"type:varchar(255);column:file_name"`
-	PreviewFile string    `gorm:"type:varchar(255);column:previewfile"`
-	CreatedAt   time.Time `gorm:"column:created_at"`
-	UpdatedAt   time.Time `gorm:"column:updated_at"`
-}
-
-type TextureListSkin struct {
-	TextureListSkinBase
-}
-
-func (TextureListSkin) TableName() string {
-	return config.AppConfig.Database.TablePrefix + "texture_list_skin"
-}
-
-type TextureListCape struct {
-	ID          uint      `gorm:"primaryKey;autoIncrement;column:id"`
-	Hash        string    `gorm:"type:varchar(64);column:hash;uniqueIndex:uk_texture_list_account_hash,priority:2"`
-	AccountID   int       `gorm:"column:account_id;index:idx_texture_list_account;uniqueIndex:uk_texture_list_account_hash,priority:1"`
-	Width       int       `gorm:"not null;default:0;column:width"`
-	Height      int       `gorm:"not null;default:0;column:height"`
-	FileName    string    `gorm:"type:varchar(255);column:file_name"`
-	PreviewFile string    `gorm:"type:varchar(255);column:previewfile"`
-	CreatedAt   time.Time `gorm:"column:created_at"`
-	UpdatedAt   time.Time `gorm:"column:updated_at"`
-}
-
-func (TextureListCape) TableName() string {
-	return config.AppConfig.Database.TablePrefix + "texture_list_cape"
-}
-
-// TextureRecord is a unified structure for texture records used in API responses.
-type TextureRecord struct {
-	ID          uint      `json:"id"`
-	Hash        string    `json:"hash"`
-	Type        string    `json:"type"`
-	AccountID   int       `json:"account_id"`
-	Model       string    `json:"model"`
-	Width       int       `json:"width"`
-	Height      int       `json:"height"`
-	FileName    string    `json:"file_name"`
-	PreviewFile string    `json:"preview_file"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-}
-
 // TextureInfo represents the texture details in Yggdrasil property.
 type TextureInfo struct {
 	URL      string                 `json:"url"`

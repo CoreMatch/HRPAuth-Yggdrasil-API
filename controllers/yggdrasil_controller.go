@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
-	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/services"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/utils"
 )
@@ -624,10 +623,6 @@ func (yc *YggdrasilController) GetTextures(c *gin.Context) {
 	}
 
 	profiles := yc.authService.GetUserProfiles(token.AccountID)
-	history, err := yc.textureService.GetAccountTextureHistory(token.AccountID)
-	if err != nil {
-		history = []models.TextureRecord{}
-	}
 
 	profileData := make([]gin.H, 0, len(profiles))
 	for _, p := range profiles {
@@ -651,7 +646,6 @@ func (yc *YggdrasilController) GetTextures(c *gin.Context) {
 
 	respondOK(c, "Success", gin.H{
 		"profiles": profileData,
-		"history":  history,
 	})
 }
 

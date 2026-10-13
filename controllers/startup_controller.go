@@ -660,7 +660,6 @@ func buildRelayRules(base string, prefix string) []clients.RelayRule {
 		"/skins",
 		"/minecraftservices",
 		"/register",
-		"/sdk",
 	}
 
 	relays := make([]clients.RelayRule, 0, len(paths))

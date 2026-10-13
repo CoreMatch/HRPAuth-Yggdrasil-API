@@ -1,10 +1,9 @@
 # Yggdrasil API WebUI SDK
 
-This SDK package provides the Minecraft skin, cape, and Yggdrasil-related management interfaces for the HRPAuth WebUI.
+This SDK package provides the Yggdrasil-related management interfaces for the HRPAuth WebUI.
 
 ## Features
 
-- **Texture Discovery**: Browse, search, and apply textures from the configured external source.
 - **Mojang Binding**: Manage Mojang account binding for username-based authentication.
 - **Texture Management**: Direct upload and management of player skins and capes.
 
@@ -14,6 +13,6 @@ This package is designed to be aggregated by `HA-WebUI-SDKHandler`. It relies on
 
 ## Routes
 
-- `/discovery`: The texture discovery page.
 - `/mojang-bind`: Mojang account binding management.
 - `/texture-management`: Personal skin and cape management.
+- `/yggdrasil-api`: Yggdrasil API information and usage guidance.

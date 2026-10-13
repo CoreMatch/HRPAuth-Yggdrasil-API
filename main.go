@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"io/fs"
 	"log"
 	"net/http"
 	"strings"
@@ -164,10 +163,6 @@ func main() {
 	r.DELETE("/texture/delete/:uuid/:type", yggdrasilCtrl.DeleteTexture)
 	r.GET("/skin/:username", yggdrasilCtrl.LegacySkin)
 	r.GET("/skins/MinecraftSkins/:username", yggdrasilCtrl.LegacySkin)
-
-	// Serve SDK files from embedded FS
-	sdkSub, _ := fs.Sub(sdkFS, "sdk")
-	r.StaticFS("/sdk", http.FS(sdkSub))
 
 	minecraftServices := r.Group("/minecraftservices")
 	{

@@ -118,5 +118,17 @@
       "uploading": "Uploading...",
       "submit": "Start Upload"
     }
+  },
+  "yggdrasil": {
+    "intro": "Built-in Yggdrasil API service (Zggdrasil) is available.",
+    "serverAddress": "Server Address",
+    "copyUrl": "Copy URL",
+    "copied": "Copied!",
+    "usageInstructions": "Usage Instructions",
+    "steps": {
+      "1": "Add the server address to your Minecraft launcher",
+      "2": "Log in with your credentials",
+      "3": "Skins and capes will be loaded automatically"
+    }
   }
 }

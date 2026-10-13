@@ -17,6 +17,11 @@
       "path": "/discovery",
       "module": "src/pages/TextureDiscovery",
       "title": "Texture Discovery"
+    },
+    {
+      "path": "/yggdrasil-api",
+      "module": "src/pages/YggdrasilApi",
+      "title": "Yggdrasil API"
     }
   ],
   "menu": [
@@ -33,10 +38,24 @@
       "path": "/mojang-bind"
     }
   ],
-  "dashboard": {
-    "label": "Minecraft Assets",
-    "path": "/texture-management"
-  },
+  "dashboard": [
+    {
+      "label": "Minecraft Assets",
+      "path": "/texture-management"
+    },
+    {
+      "label": "Mojang Binding",
+      "path": "/mojang-bind"
+    },
+    {
+      "label": "Texture Discovery",
+      "path": "/discovery"
+    },
+    {
+      "label": "Yggdrasil API",
+      "path": "/yggdrasil-api"
+    }
+  ],
   "dependencies": {
     "skinview3d": "^3.4.2"
   },

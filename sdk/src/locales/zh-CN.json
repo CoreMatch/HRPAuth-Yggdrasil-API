@@ -118,5 +118,17 @@
       "uploading": "上传中...",
       "submit": "开始上传"
     }
+  },
+  "yggdrasil": {
+    "intro": "内置 Yggdrasil API 服务 (Zggdrasil) 可用。",
+    "serverAddress": "服务器地址",
+    "copyUrl": "复制链接",
+    "copied": "已复制！",
+    "usageInstructions": "使用说明",
+    "steps": {
+      "1": "将服务器地址添加到你的 Minecraft 启动器",
+      "2": "使用你的凭据登录",
+      "3": "皮肤和披风将自动加载"
+    }
   }
 }

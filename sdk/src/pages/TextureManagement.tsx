@@ -6,7 +6,7 @@ import Delete from '@mui/icons-material/Delete';
 import Photo from '@mui/icons-material/Photo';
 
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
-import { BackendUrl, request } from '../utils/proxy';
+import { BackendUrl, buildServiceUrl, request } from '../utils/proxy';
 
 const SkinViewer3D = lazy(() => import('../components/SkinViewer3D'));
 
@@ -45,9 +45,10 @@ export default function TextureManagement() {
 
   const skinFileInputRef = useRef<HTMLInputElement>(null);
   const capeFileInputRef = useRef<HTMLInputElement>(null);
+  const serviceBaseUrl = buildServiceUrl(BackendUrl, '');
 
   const getCurrentProfileID = async (): Promise<string | null> => {
-    const response = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
+    const response = await request(`${serviceBaseUrl}/texture/get`, { method: 'POST' });
     if (!response.success) {
       setError(response.message || t('common.serverError'));
       return null;
@@ -64,7 +65,7 @@ export default function TextureManagement() {
 
   const fetchTextures = async () => {
     try {
-      const response = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
+      const response = await request(`${serviceBaseUrl}/texture/get`, { method: 'POST' });
       if (response.success && response.data) {
         // Assume for now we use the first profile or the one matching the current session
         const profile = response.data.profiles?.[0];
@@ -149,7 +150,10 @@ export default function TextureManagement() {
       const formData = new FormData();
       formData.append('type', type);
       formData.append('file', file);
-      const response = await request(`${BackendUrl}/texture/upload/${profileID}`, { method: 'POST', body: formData });
+      const response = await request(`${serviceBaseUrl}/texture/upload/${profileID}`, {
+        method: 'POST',
+        body: formData,
+      });
       if (response.success) {
         setSuccess({ type, action: 'upload' });
         if (type === 'skin') {
@@ -181,7 +185,7 @@ export default function TextureManagement() {
     setDeleting(type);
     setError(null);
     try {
-      const response = await request(`${BackendUrl}/texture/delete/${profileID}/${type}`, {
+      const response = await request(`${serviceBaseUrl}/texture/delete/${profileID}/${type}`, {
         method: 'DELETE',
       });
       if (response.success) {

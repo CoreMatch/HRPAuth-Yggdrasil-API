@@ -1,4 +1,4 @@
-import { BackendUrl, request, type ApiResponse } from '../utils/proxy';
+import { BackendUrl, buildServiceUrl, request, type ApiResponse } from '../utils/proxy';
 
 export async function applyTextureToUser(
   type: string,
@@ -6,7 +6,7 @@ export async function applyTextureToUser(
   model?: string,
   uid?: number
 ): Promise<ApiResponse> {
-  const url = `${BackendUrl}/texture/upload`;
+  const url = buildServiceUrl(BackendUrl, '/texture/upload');
   const formData = new FormData();
   formData.append('texture_type', type);
   formData.append('file', file);
@@ -23,7 +23,7 @@ export function mojangTextureUrl(
   uuid: string,
   type: 'skin' | 'cape' = 'skin',
 ): string {
-  return `${BackendUrl}/texture/mojang/${uuid}?type=${type}`;
+  return buildServiceUrl(BackendUrl, `/texture/mojang/${uuid}?type=${type}`);
 }
 
 export interface MojangProfileResponse {
@@ -43,9 +43,8 @@ export async function fetchMojangProfile(
 }
 
 export async function fetchUserTextures(): Promise<ApiResponse> {
-  const url = `${BackendUrl}/texture/get`;
+  const url = buildServiceUrl(BackendUrl, '/texture/get');
   return request(url, {
     method: 'POST',
   });
 }
-

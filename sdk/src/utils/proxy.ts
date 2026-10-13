@@ -11,3 +11,18 @@ export type { ApiResponse } from '../../../../../utils/api';
 export { getAuthToken, getUid, getMbeEnabled, setMbeEnabled } from '../../../../../utils/cookie';
 // @ts-ignore
 export { dataCache } from '../../../../../utils/dataCache';
+
+const SERVICE_PREFIX = '/yggdrasil-api';
+
+export function getServiceBackendUrl(baseUrl: string): string {
+  const base = (baseUrl || '').replace(/\/$/, '');
+  return `${base}${SERVICE_PREFIX}`;
+}
+
+export function buildServiceUrl(baseUrl: string, path: string): string {
+  if (!path) {
+    return getServiceBackendUrl(baseUrl);
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${getServiceBackendUrl(baseUrl)}${cleanPath}`;
+}

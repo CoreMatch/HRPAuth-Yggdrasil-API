@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "yggdrasil-api",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "routes": [
     {
       "path": "/mojang-bind",
@@ -41,6 +41,18 @@
     {
       "label": "Yggdrasil API",
       "path": "/yggdrasil-api"
+    }
+  ],
+  "profile_cards": [
+    {
+      "title": "Minecraft Assets",
+      "module": "src/profile/TextureManagementCard",
+      "priority": 200
+    },
+    {
+      "title": "Mojang Binding",
+      "module": "src/profile/MojangBindCard",
+      "priority": 100
     }
   ],
   "dependencies": {

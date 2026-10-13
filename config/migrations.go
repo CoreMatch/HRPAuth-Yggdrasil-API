@@ -22,6 +22,7 @@ type ConfigMigration struct {
 // History:
 //   - "1": initial decoupled Yggdrasil-API service config
 //   - "2": remove static internal_key and add relay_path_prefix
+//   - "3": add profile_cards priority settings
 func configMigrations() []ConfigMigration {
 	return []ConfigMigration{
 		{
@@ -41,6 +42,23 @@ func configMigrations() []ConfigMigration {
 				}
 
 				cfg["version"] = "2"
+				return nil
+			},
+		},
+		{
+			FromVersion: "2",
+			ToVersion:   "3",
+			Migrate: func(cfg map[string]interface{}, tokenGen func() string) error {
+				// Add profile_cards to microservice
+				if ms, ok := cfg["microservice"].(map[string]interface{}); ok {
+					if ms["profile_cards"] == nil {
+						ms["profile_cards"] = map[string]interface{}{
+							"Minecraft Assets": 200,
+							"Mojang Binding":   100,
+						}
+					}
+				}
+				cfg["version"] = "3"
 				return nil
 			},
 		},

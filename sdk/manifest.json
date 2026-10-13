@@ -14,12 +14,21 @@
       "title": "Texture Management"
     },
     {
+      "path": "/discovery",
+      "module": "src/pages/TextureDiscovery",
+      "title": "Texture Discovery"
+    },
+    {
       "path": "/yggdrasil-api",
       "module": "src/pages/YggdrasilApi",
       "title": "Yggdrasil API"
     }
   ],
   "menu": [
+    {
+      "label": "Texture Discovery",
+      "path": "/discovery"
+    },
     {
       "label": "Texture Management",
       "path": "/texture-management"
@@ -31,12 +40,16 @@
   ],
   "dashboard": [
     {
-      "label": "Texture Management",
+      "label": "Minecraft Assets",
       "path": "/texture-management"
     },
     {
       "label": "Mojang Binding",
       "path": "/mojang-bind"
+    },
+    {
+      "label": "Texture Discovery",
+      "path": "/discovery"
     },
     {
       "label": "Yggdrasil API",

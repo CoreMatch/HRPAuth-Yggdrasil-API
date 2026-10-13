@@ -2,12 +2,12 @@
 // When the SDK is aggregated, these relative imports will point to the host's actual utilities.
 
 // @ts-ignore
-export { BackendUrl, getRealBackendUrl } from '../../../utils/config';
+export { BackendUrl, getRealBackendUrl, SkinlibUrl as DiscoverySourceUrl, setSkinlibUrl as setDiscoverySourceUrl } from '../../../../../utils/config';
 // @ts-ignore
-export { request } from '../../../utils/api';
+export { request } from '../../../../../utils/api';
 // @ts-ignore
-export type { ApiResponse } from '../../../utils/api';
+export type { ApiResponse } from '../../../../../utils/api';
 // @ts-ignore
-export { getAuthToken, getUid, getMbeEnabled, setMbeEnabled } from '../../../utils/cookie';
+export { getAuthToken, getUid, getMbeEnabled, setMbeEnabled } from '../../../../../utils/cookie';
 // @ts-ignore
-export { dataCache } from '../../../utils/dataCache';
+export { dataCache } from '../../../../../utils/dataCache';

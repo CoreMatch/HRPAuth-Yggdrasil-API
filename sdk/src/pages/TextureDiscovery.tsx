@@ -37,7 +37,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
 import { listTextures, getPreviewUrl, uploadTexture, pullTexture, applyTextureToUser, deleteTexture } from '../api/texture';
 import type { TextureItem, TextureListRequest, TextureType, SkinModel } from '../types/texture';
-import { getAuthToken, getUid, SkinlibUrl, setSkinlibUrl } from '../utils/proxy';
+import { getAuthToken, getUid, DiscoverySourceUrl, setDiscoverySourceUrl } from '../utils/proxy';
 
 interface UploadDialogProps {
   open: boolean;
@@ -57,17 +57,17 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
   const [error, setError] = useState<string | null>(null);
   const [securityConfirmed, setSecurityConfirmed] = useState(false);
 
-  const isCustomUrl = !!SkinlibUrl;
+  const isCustomUrl = !!DiscoverySourceUrl;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       if (selectedFile.type !== 'image/png') {
-        setError(t('skinlib.uploadDialog.pngOnly'));
+        setError(t('discovery.uploadDialog.pngOnly'));
         return;
       }
       if (selectedFile.size > 2 * 1024 * 1024) {
-        setError(t('skinlib.uploadDialog.errors.tooLarge'));
+        setError(t('discovery.uploadDialog.errors.tooLarge'));
         return;
       }
       const img = new Image();
@@ -75,7 +75,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
       img.onload = () => {
         URL.revokeObjectURL(objectUrl);
         if (img.width > 8192 || img.height > 8192) {
-          setError(t('skinlib.uploadDialog.errors.tooWide'));
+          setError(t('discovery.uploadDialog.errors.tooWide'));
           return;
         }
         setFile(selectedFile);
@@ -86,7 +86,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
       };
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
-        setError(t('skinlib.uploadDialog.pngOnly'));
+        setError(t('discovery.uploadDialog.pngOnly'));
       };
       img.src = objectUrl;
     }
@@ -94,21 +94,20 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
 
   const handleUpload = async () => {
     if (!file || !name) {
-      setError(t('skinlib.uploadDialog.selectFileAndName'));
+      setError(t('discovery.uploadDialog.selectFileAndName'));
       return;
     }
 
     if (isCustomUrl && !securityConfirmed) {
-      setError(t('skinlib.uploadDialog.confirmSecurityFirst'));
+      setError(t('discovery.uploadDialog.confirmSecurityFirst'));
       return;
     }
 
-    const token = getAuthToken();
     const uidStr = getUid();
     const uid = uidStr ? parseInt(uidStr) : NaN;
 
-    if (!token || !uidStr || isNaN(uid) || uid <= 0) {
-      setError(t('skinlib.notLoggedInUid'));
+    if (isNaN(uid) || uid <= 0) {
+      setError(t('discovery.notLoggedInUid'));
       return;
     }
 
@@ -117,7 +116,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
 
     try {
       const result = await uploadTexture({
-        uid: uid,
+        uid,
         type,
         model: type === 'skin' ? model : undefined,
         name,
@@ -130,10 +129,10 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
         onSuccess();
         handleClose();
       } else {
-        setError(result.message || t('skinlib.uploadDialog.uploadFailed'));
+        setError(result.message || t('discovery.uploadDialog.uploadFailed'));
       }
     } catch (err) {
-      setError(t('skinlib.uploadDialog.uploadError'));
+      setError(t('discovery.uploadDialog.uploadError'));
     } finally {
       setUploading(false);
     }
@@ -153,7 +152,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('skinlib.uploadDialog.title')}</DialogTitle>
+      <DialogTitle>{t('discovery.uploadDialog.title')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
@@ -165,12 +164,12 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
             fullWidth
             sx={{ py: 2 }}
           >
-            {file ? t('skinlib.uploadDialog.selected', { name: file.name }) : t('skinlib.uploadDialog.selectFile')}
+            {file ? t('discovery.uploadDialog.selected', { name: file.name }) : t('discovery.uploadDialog.selectFile')}
             <input type="file" hidden accept="image/png" onChange={handleFileChange} />
           </Button>
 
           <TextField
-            label={t('skinlib.uploadDialog.nameLabel')}
+            label={t('discovery.uploadDialog.nameLabel')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -179,33 +178,33 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
           />
 
           <FormControl>
-            <FormLabel>{t('skinlib.uploadDialog.typeLabel')}</FormLabel>
+            <FormLabel>{t('discovery.uploadDialog.typeLabel')}</FormLabel>
             <RadioGroup
               row
               value={type}
               onChange={(e) => setType(e.target.value as TextureType)}
             >
-              <FormControlLabel value="skin" control={<Radio />} label={t('skinlib.uploadDialog.typeSkin')} />
-              <FormControlLabel value="cape" control={<Radio />} label={t('skinlib.uploadDialog.typeCape')} />
+              <FormControlLabel value="skin" control={<Radio />} label={t('discovery.uploadDialog.typeSkin')} />
+              <FormControlLabel value="cape" control={<Radio />} label={t('discovery.uploadDialog.typeCape')} />
             </RadioGroup>
           </FormControl>
 
           {type === 'skin' && (
             <FormControl>
-              <FormLabel>{t('skinlib.uploadDialog.modelLabel')}</FormLabel>
+              <FormLabel>{t('discovery.uploadDialog.modelLabel')}</FormLabel>
               <RadioGroup
                 row
                 value={model}
                 onChange={(e) => setModel(e.target.value as SkinModel)}
               >
-                <FormControlLabel value="default" control={<Radio />} label={t('skinlib.uploadDialog.modelDefault')} />
-                <FormControlLabel value="slim" control={<Radio />} label={t('skinlib.uploadDialog.modelSlim')} />
+                <FormControlLabel value="default" control={<Radio />} label={t('discovery.uploadDialog.modelDefault')} />
+                <FormControlLabel value="slim" control={<Radio />} label={t('discovery.uploadDialog.modelSlim')} />
               </RadioGroup>
             </FormControl>
           )}
 
           <TextField
-            label={t('skinlib.uploadDialog.descriptionLabel')}
+            label={t('discovery.uploadDialog.descriptionLabel')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             fullWidth
@@ -215,12 +214,12 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
           />
 
           <TextField
-            label={t('skinlib.uploadDialog.tagsLabel')}
+            label={t('discovery.uploadDialog.tagsLabel')}
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             fullWidth
             size="small"
-            placeholder={t('skinlib.uploadDialog.tagsPlaceholder')}
+            placeholder={t('discovery.uploadDialog.tagsPlaceholder')}
           />
 
           {isCustomUrl && (
@@ -235,7 +234,7 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
                 }
                 label={
                   <Typography variant="body2" color="error.main" sx={{ fontWeight: 'bold' }}>
-                    {t('skinlib.uploadDialog.securityConfirm')}
+                    {t('discovery.uploadDialog.securityConfirm')}
                   </Typography>
                 }
               />
@@ -251,14 +250,14 @@ const UploadDialog: React.FC<UploadDialogProps> = ({ open, onClose, onSuccess })
           disabled={uploading || !file || !name || (isCustomUrl && !securityConfirmed)}
           color={isCustomUrl ? "error" : "primary"}
         >
-          {uploading ? t('skinlib.uploadDialog.uploading') : t('skinlib.uploadDialog.submit')}
+          {uploading ? t('discovery.uploadDialog.uploading') : t('discovery.uploadDialog.submit')}
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-const Skinlib: React.FC = () => {
+const TextureDiscovery: React.FC = () => {
   const { t } = useSdkTranslation();
 
   const [loading, setLoading] = useState(true);
@@ -271,7 +270,7 @@ const Skinlib: React.FC = () => {
   const [tag, setTag] = useState('');
   const [searchTag, setSearchTag] = useState('');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [sourceUrl, setSourceUrl] = useState(SkinlibUrl);
+  const [sourceUrl, setSourceUrl] = useState(DiscoverySourceUrl);
   const [usingHash, setUsingHash] = useState<string | null>(null);
   const [deletingHash, setDeletingHash] = useState<string | null>(null);
   const [confirmDeleteItem, setConfirmDeleteItem] = useState<TextureItem | null>(null);
@@ -296,10 +295,10 @@ const Skinlib: React.FC = () => {
         setTextures(result.data.items);
         setTotal(result.data.total);
       } else {
-        setError(result.message || t('skinlib.loadFailed'));
+        setError(result.message || t('discovery.loadFailed'));
       }
     } catch (err) {
-      setError(t('skinlib.networkError'));
+      setError(t('discovery.networkError'));
     } finally {
       setLoading(false);
     }
@@ -311,7 +310,7 @@ const Skinlib: React.FC = () => {
     const uid = uidStr ? parseInt(uidStr) : NaN;
 
     if (!token || !uidStr || isNaN(uid) || uid <= 0) {
-      setSnackbar({ open: true, message: t('skinlib.notLoggedInUid'), severity: 'error' });
+      setSnackbar({ open: true, message: t('discovery.notLoggedInUid'), severity: 'error' });
       return;
     }
 
@@ -322,7 +321,7 @@ const Skinlib: React.FC = () => {
       const blob = await pullTexture(item.hash);
 
       if ('success' in blob && !blob.success) {
-        setSnackbar({ open: true, message: blob.message || t('skinlib.applyFailed'), severity: 'error' });
+        setSnackbar({ open: true, message: blob.message || t('discovery.applyFailed'), severity: 'error' });
         return;
       }
 
@@ -337,12 +336,12 @@ const Skinlib: React.FC = () => {
       );
 
       if (result.success) {
-        setSnackbar({ open: true, message: t('skinlib.applySuccess', { name: item.name }), severity: 'success' });
+        setSnackbar({ open: true, message: t('discovery.applySuccess', { name: item.name }), severity: 'success' });
       } else {
-        setSnackbar({ open: true, message: result.message || t('skinlib.applyFailed'), severity: 'error' });
+        setSnackbar({ open: true, message: result.message || t('discovery.applyFailed'), severity: 'error' });
       }
     } catch (err) {
-      setSnackbar({ open: true, message: t('skinlib.operationError'), severity: 'error' });
+      setSnackbar({ open: true, message: t('discovery.operationError'), severity: 'error' });
     } finally {
       setUsingHash(null);
     }
@@ -351,7 +350,7 @@ const Skinlib: React.FC = () => {
   const handleDeleteTexture = async (item: TextureItem) => {
     const token = getAuthToken();
     if (!token) {
-      setSnackbar({ open: true, message: t('skinlib.notLoggedIn'), severity: 'error' });
+      setSnackbar({ open: true, message: t('discovery.notLoggedIn'), severity: 'error' });
       return;
     }
 
@@ -361,14 +360,14 @@ const Skinlib: React.FC = () => {
       const result = await deleteTexture({ type: item.type, hash: item.hash });
 
       if (result.success) {
-        setSnackbar({ open: true, message: t('skinlib.deleteSuccess', { name: item.name }), severity: 'success' });
+        setSnackbar({ open: true, message: t('discovery.deleteSuccess', { name: item.name }), severity: 'success' });
         setConfirmDeleteItem(null);
         fetchTextures();
       } else {
-        setSnackbar({ open: true, message: result.message || t('skinlib.deleteFailed'), severity: 'error' });
+        setSnackbar({ open: true, message: result.message || t('discovery.deleteFailed'), severity: 'error' });
       }
     } catch {
-      setSnackbar({ open: true, message: t('skinlib.deleteError'), severity: 'error' });
+      setSnackbar({ open: true, message: t('discovery.deleteError'), severity: 'error' });
     } finally {
       setDeletingHash(null);
     }
@@ -395,23 +394,23 @@ const Skinlib: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4, gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
         <Box>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-            {t('skinlib.title')}
+            {t('discovery.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {t('skinlib.currentSource', { url: sourceUrl || '(开发环境代理)' })}
+            {t('discovery.currentSource', { url: sourceUrl || '(开发环境代理)' })}
           </Typography>
         </Box>
 
         <Stack direction="row" spacing={2} sx={{ width: { xs: '100%', sm: 'auto' } }}>
           <TextField
             size="small"
-            label={t('skinlib.sourceLabel')}
-            placeholder={t('skinlib.sourcePlaceholder')}
+            label={t('discovery.sourceLabel')}
+            placeholder={t('discovery.sourcePlaceholder')}
             value={sourceUrl}
             onChange={(e) => {
               const newUrl = e.target.value;
               setSourceUrl(newUrl);
-              setSkinlibUrl(newUrl);
+              setDiscoverySourceUrl(newUrl);
               setPage(1);
             }}
             slotProps={{
@@ -431,7 +430,7 @@ const Skinlib: React.FC = () => {
             onClick={() => setUploadDialogOpen(true)}
             sx={{ whiteSpace: 'nowrap' }}
           >
-            {t('skinlib.upload')}
+            {t('discovery.upload')}
           </Button>
         </Stack>
       </Box>
@@ -440,41 +439,41 @@ const Skinlib: React.FC = () => {
 
       <Box sx={{ mb: 4, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>{t('skinlib.typeFilter')}</InputLabel>
+          <InputLabel>{t('discovery.typeFilter')}</InputLabel>
           <Select
             value={type}
-            label={t('skinlib.typeFilter')}
+            label={t('discovery.typeFilter')}
             onChange={(e) => {
               setType(e.target.value as any);
               setPage(1);
             }}
           >
-            <MenuItem value="all">{t('skinlib.typeAll')}</MenuItem>
-            <MenuItem value="default">{t('skinlib.typeDefault')}</MenuItem>
-            <MenuItem value="slim">{t('skinlib.typeSlim')}</MenuItem>
-            <MenuItem value="cape">{t('skinlib.typeCape')}</MenuItem>
+            <MenuItem value="all">{t('discovery.typeAll')}</MenuItem>
+            <MenuItem value="default">{t('discovery.typeDefault')}</MenuItem>
+            <MenuItem value="slim">{t('discovery.typeSlim')}</MenuItem>
+            <MenuItem value="cape">{t('discovery.typeCape')}</MenuItem>
           </Select>
         </FormControl>
 
         <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>{t('skinlib.sort')}</InputLabel>
+          <InputLabel>{t('discovery.sort')}</InputLabel>
           <Select
             value={order}
-            label={t('skinlib.sort')}
+            label={t('discovery.sort')}
             onChange={(e) => {
               setOrder(e.target.value as any);
               setPage(1);
             }}
           >
-            <MenuItem value="desc">{t('skinlib.sortDesc')}</MenuItem>
-            <MenuItem value="asc">{t('skinlib.sortAsc')}</MenuItem>
+            <MenuItem value="desc">{t('discovery.sortDesc')}</MenuItem>
+            <MenuItem value="asc">{t('discovery.sortAsc')}</MenuItem>
           </Select>
         </FormControl>
 
         <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 1, flexGrow: 1, maxWidth: 400 }}>
           <TextField
             size="small"
-            placeholder={t('skinlib.searchPlaceholder')}
+            placeholder={t('discovery.searchPlaceholder')}
             value={tag}
             onChange={(e) => setTag(e.target.value)}
             fullWidth
@@ -504,7 +503,7 @@ const Skinlib: React.FC = () => {
       ) : textures.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Typography variant="body1" color="text.secondary">
-            {t('skinlib.empty')}
+            {t('discovery.empty')}
           </Typography>
         </Box>
       ) : (
@@ -563,7 +562,7 @@ const Skinlib: React.FC = () => {
                       height: '3em',
                       mb: 1
                     }}>
-                      {item.description || t('skinlib.noDescription')}
+                      {item.description || t('discovery.noDescription')}
                     </Typography>
                     <Stack direction="row" spacing={0.5} flexWrap="wrap">
                       {item.tags.split(/[，,；;\n]/).filter(t => t.trim()).slice(0, 3).map((t, idx) => (
@@ -578,7 +577,7 @@ const Skinlib: React.FC = () => {
                       disabled={usingHash === item.hash || deletingHash === item.hash}
                       onClick={() => handleUseTexture(item)}
                     >
-                      {usingHash === item.hash ? t('skinlib.using') : t('skinlib.use')}
+                      {usingHash === item.hash ? t('discovery.using') : t('discovery.use')}
                     </Button>
                     {String(item.uid) === getUid() && (
                       <Button
@@ -589,7 +588,7 @@ const Skinlib: React.FC = () => {
                         disabled={usingHash === item.hash || deletingHash === item.hash}
                         onClick={() => setConfirmDeleteItem(item)}
                       >
-                        {t('skinlib.delete')}
+                        {t('discovery.delete')}
                       </Button>
                     )}
                   </CardActions>
@@ -616,13 +615,13 @@ const Skinlib: React.FC = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>{t('skinlib.deleteConfirmTitle')}</DialogTitle>
+        <DialogTitle>{t('discovery.deleteConfirmTitle')}</DialogTitle>
         <DialogContent>
           <Typography>
-            {confirmDeleteItem ? t('skinlib.deleteConfirm', { name: confirmDeleteItem.name }) : ''}
+            {confirmDeleteItem ? t('discovery.deleteConfirm', { name: confirmDeleteItem.name }) : ''}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            {t('skinlib.deleteConfirmHint')}
+            {t('discovery.deleteConfirmHint')}
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -635,7 +634,7 @@ const Skinlib: React.FC = () => {
             onClick={() => confirmDeleteItem && handleDeleteTexture(confirmDeleteItem)}
             disabled={deletingHash !== null}
           >
-            {deletingHash ? t('skinlib.deleting') : t('skinlib.deleteConfirmTitle')}
+            {deletingHash ? t('discovery.deleting') : t('discovery.deleteConfirmTitle')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -668,4 +667,4 @@ const Skinlib: React.FC = () => {
   );
 };
 
-export default Skinlib;
+export default TextureDiscovery;

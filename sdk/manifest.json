@@ -14,15 +14,25 @@
       "title": "Texture Management"
     },
     {
-      "path": "/skinlib",
-      "module": "src/pages/Skinlib",
-      "title": "Skin Library"
+      "path": "/discovery",
+      "module": "src/pages/TextureDiscovery",
+      "title": "Texture Discovery"
     }
   ],
-  "menu": {
-    "label": "Minecraft Assets",
-    "path": "/texture-management"
-  },
+  "menu": [
+    {
+      "label": "Texture Discovery",
+      "path": "/discovery"
+    },
+    {
+      "label": "Texture Management",
+      "path": "/texture-management"
+    },
+    {
+      "label": "Mojang Binding",
+      "path": "/mojang-bind"
+    }
+  ],
   "dashboard": {
     "label": "Minecraft Assets",
     "path": "/texture-management"

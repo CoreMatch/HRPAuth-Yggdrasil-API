@@ -4,7 +4,7 @@ This SDK package provides the Minecraft skin, cape, and Yggdrasil-related manage
 
 ## Features
 
-- **Skin Library**: Browse, search, and apply textures from the configured skin source.
+- **Texture Discovery**: Browse, search, and apply textures from the configured external source.
 - **Mojang Binding**: Manage Mojang account binding for username-based authentication.
 - **Texture Management**: Direct upload and management of player skins and capes.
 
@@ -14,6 +14,6 @@ This package is designed to be aggregated by `HA-WebUI-SDKHandler`. It relies on
 
 ## Routes
 
-- `/skinlib`: The main skin library page.
+- `/discovery`: The texture discovery page.
 - `/mojang-bind`: Mojang account binding management.
 - `/texture-management`: Personal skin and cape management.

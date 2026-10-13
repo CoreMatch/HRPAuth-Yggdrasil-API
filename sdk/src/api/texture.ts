@@ -1,4 +1,4 @@
-import { BackendUrl, SkinlibUrl, request, type ApiResponse } from '../utils/proxy';
+import { BackendUrl, DiscoverySourceUrl, request, type ApiResponse } from '../utils/proxy';
 import type { 
   TextureUploadRequest, 
   TextureItem,
@@ -10,7 +10,7 @@ import type {
 export async function uploadTexture(
   data: TextureUploadRequest
 ): Promise<ApiResponse<TextureItem>> {
-  const url = `${SkinlibUrl}/texture/upload`;
+  const url = `${DiscoverySourceUrl}/texture/upload`;
   const formData = new FormData();
   formData.append('uid', data.uid.toString());
   formData.append('type', data.type);
@@ -35,7 +35,7 @@ export async function listTextures(
   if (params.tag) query.append('tag', params.tag);
   if (params.page) query.append('page', params.page.toString());
 
-  const url = `${SkinlibUrl}/texture/listpreview${query.toString() ? `?${query.toString()}` : ''}`;
+  const url = `${DiscoverySourceUrl}/texture/listpreview${query.toString() ? `?${query.toString()}` : ''}`;
 
   return request<TextureListResponse>(url, {
     method: 'GET',
@@ -44,7 +44,7 @@ export async function listTextures(
 
 export async function pullTexture(hash: string): Promise<Blob | { success: false; message: string }> {
   try {
-    const url = `${SkinlibUrl}/texture/pull/${hash}`;
+    const url = `${DiscoverySourceUrl}/texture/pull/${hash}`;
 
     const resp = await fetch(url, {
       method: 'GET',
@@ -87,7 +87,7 @@ export async function applyTextureToUser(
 }
 
 export function getPreviewUrl(previewFile: string): string {
-  return `${SkinlibUrl}/texture/preview/${previewFile}`;
+  return `${DiscoverySourceUrl}/texture/preview/${previewFile}`;
 }
 
 export function mojangTextureUrl(
@@ -116,7 +116,7 @@ export async function fetchMojangProfile(
 export async function deleteTexture(
   data: TextureDeleteRequest
 ): Promise<ApiResponse<TextureItem>> {
-  const url = `${SkinlibUrl}/texture/delete`;
+  const url = `${DiscoverySourceUrl}/texture/delete`;
   const formData = new FormData();
   formData.append('type', data.type);
   formData.append('hash', data.hash);

@@ -57,8 +57,8 @@
     "capeAvailable": "有披风",
     "noSkinData": "暂无皮肤数据"
   },
-  "skinlib": {
-    "title": "材质库",
+  "discovery": {
+    "title": "材质发现",
     "currentSource": "当前材质源: {{url}}",
     "sourcePlaceholder": "http://example.com",
     "sourceLabel": "材质源 URL",

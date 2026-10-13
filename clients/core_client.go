@@ -78,6 +78,24 @@ func (c *CoreClient) VerifyCredentials(identifier, password string) (*models.Use
 	return &user, nil
 }
 
+func (c *CoreClient) VerifyToken(token string) (*models.User, error) {
+	var resp struct {
+		Success bool        `json:"success"`
+		Data    models.User `json:"data"`
+	}
+	body := map[string]string{
+		"token": token,
+	}
+	err := c.doRequest("POST", "/internal/verify-token", body, &resp)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, errors.New("token verification failed")
+	}
+	return &resp.Data, nil
+}
+
 type UserInfoResponse struct {
 	Data models.User `json:"data"`
 }

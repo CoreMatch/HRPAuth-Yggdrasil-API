@@ -472,22 +472,37 @@ func (as *AuthService) GetValidTokenByClientToken(accountID int, clientToken str
 func (as *AuthService) ValidateToken(accessToken string, clientToken string) *models.Token {
 	var token models.Token
 	result := database.DB.Where("access_token = ? AND state = ?", accessToken, "valid").First(&token)
-	if result.Error != nil {
+	if result.Error == nil {
+		if clientToken != "" && clientToken != token.ClientToken {
+			return nil
+		}
+
+		nowMillis := utils.CurrentTimestampMillis()
+		expiryMillis := token.IssuedAt + int64(token.ExpiresInDays)*24*60*60*1000
+		if nowMillis > expiryMillis {
+			as.InvalidateToken(accessToken)
+			return nil
+		}
+		return &token
+	}
+
+	// Not a local token, try Core auth for OAuth2 tokens
+	user, err := as.coreClient.VerifyToken(accessToken)
+	if err != nil {
 		return nil
 	}
 
-	if clientToken != "" && clientToken != token.ClientToken {
+	var account models.Account
+	if err := database.DB.Where("core_user_id = ?", user.UUID).First(&account).Error; err != nil {
 		return nil
 	}
 
-	nowMillis := utils.CurrentTimestampMillis()
-	expiryMillis := token.IssuedAt + int64(token.ExpiresInDays)*24*60*60*1000
-	if nowMillis > expiryMillis {
-		as.InvalidateToken(accessToken)
-		return nil
+	// Return a virtual token for Core-validated access
+	return &models.Token{
+		AccessToken: accessToken,
+		AccountID:   account.ID,
+		State:       "valid",
 	}
-
-	return &token
 }
 
 func (as *AuthService) ValidateTokenForRefresh(accessToken string, clientToken string) *models.Token {

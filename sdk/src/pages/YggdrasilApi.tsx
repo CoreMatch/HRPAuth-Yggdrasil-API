@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Card, CardContent, Grid, Button, Typography, alpha } from "@mui/material";
+import { useState, useEffect } from 'react';
+import { Box, Card, CardContent, Grid, Button, Typography } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
 import { getRealBackendUrl } from '../utils/proxy';
@@ -32,7 +32,7 @@ export default function YggdrasilApi() {
 
   useEffect(() => {
     let mounted = true;
-    getRealBackendUrl().then((url) => {
+    getRealBackendUrl().then((url: string) => {
       if (mounted) setBaseUrl(url);
     });
     return () => {
@@ -52,7 +52,7 @@ export default function YggdrasilApi() {
       <Typography variant="h6">{t('yggdrasil.intro')}</Typography>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>{t('yggdrasil.serverAddress')}</Typography>

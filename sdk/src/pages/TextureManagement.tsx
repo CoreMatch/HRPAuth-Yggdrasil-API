@@ -46,6 +46,22 @@ export default function TextureManagement() {
   const skinFileInputRef = useRef<HTMLInputElement>(null);
   const capeFileInputRef = useRef<HTMLInputElement>(null);
 
+  const getCurrentProfileID = async (): Promise<string | null> => {
+    const response = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
+    if (!response.success) {
+      setError(response.message || t('common.serverError'));
+      return null;
+    }
+
+    const profileID = response.data?.profiles?.[0]?.id;
+    if (!profileID) {
+      setError('Profile not found');
+      return null;
+    }
+
+    return profileID;
+  };
+
   const fetchTextures = async () => {
     try {
       const response = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
@@ -122,11 +138,8 @@ export default function TextureManagement() {
       return;
     }
 
-    // Get current profile UUID
-    const responseGet = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
-    const profileID = responseGet.data?.profiles?.[0]?.id;
+    const profileID = await getCurrentProfileID();
     if (!profileID) {
-      setError("Profile not found");
       return;
     }
 
@@ -160,11 +173,8 @@ export default function TextureManagement() {
   };
 
   const handleDelete = async (type: TextureType) => {
-    // Get current profile UUID
-    const responseGet = await request(`${BackendUrl}/texture/get`, { method: 'POST' });
-    const profileID = responseGet.data?.profiles?.[0]?.id;
+    const profileID = await getCurrentProfileID();
     if (!profileID) {
-      setError("Profile not found");
       return;
     }
 

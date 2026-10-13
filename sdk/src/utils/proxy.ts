@@ -2,7 +2,7 @@
 // When the SDK is aggregated, these relative imports will point to the host's actual utilities.
 
 // @ts-ignore
-export { BackendUrl, getRealBackendUrl, SkinlibUrl as DiscoverySourceUrl, setSkinlibUrl as setDiscoverySourceUrl } from '../../../../../utils/config';
+export { BackendUrl, getRealBackendUrl } from '../../../../../utils/config';
 // @ts-ignore
 export { request } from '../../../../../utils/api';
 // @ts-ignore

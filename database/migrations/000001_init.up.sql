@@ -1,9 +1,13 @@
 CREATE TABLE IF NOT EXISTS `accounts` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `core_user_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Foreign key to Core users.uuid',
+  `core_user_id` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Foreign key to Core users.uuid',
   `mojang_uuid` varchar(32) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `mbe` tinyint(1) NOT NULL DEFAULT 0,
+  `cbh` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1 = Human, 0 = Proxy/Bot',
+  `last_sign_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_core_user_id` (`core_user_id`),
   UNIQUE KEY `uk_accounts_mojang_uuid` (`mojang_uuid`)
@@ -28,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `profile_properties` (
   `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `value` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `signature` text COLLATE utf8mb4_unicode_ci,
+  `delete_when` bigint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `profile_id` (`profile_id`),
   CONSTRAINT `profile_properties_ibfk_1` FOREIGN KEY (`profile_id`) REFERENCES `profiles` (`id`) ON DELETE CASCADE

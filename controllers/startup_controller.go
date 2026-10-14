@@ -34,7 +34,6 @@ import (
 type StartupController struct{}
 
 const ConfigFileName = "config.yaml"
-const schemaMigrationService = "Yggdrasil-API"
 
 func NewStartupController() *StartupController {
 	return &StartupController{}
@@ -437,10 +436,6 @@ func (sc *StartupController) EnsureMigrations() error {
 		return fmt.Errorf("failed to run migrations: %v", err)
 	}
 
-	if err := sc.ensureSchemaMigrationServiceColumn(db, cfg.TablePrefix); err != nil {
-		return err
-	}
-
 	version, dirty, _ := m.Version()
 	log.Printf("Database migration completed at version %d (dirty: %t)", version, dirty)
 	return nil
@@ -450,84 +445,48 @@ func (sc *StartupController) ensureSchemaMigrationTable(db *sql.DB, prefix strin
 	query := "CREATE TABLE IF NOT EXISTS `" + prefix + "schema_migrations` (" +
 		"`version` bigint NOT NULL," +
 		"`dirty` boolean NOT NULL," +
-		"`service` varchar(16) NOT NULL DEFAULT '" + schemaMigrationService + "'," +
-		"PRIMARY KEY (`service`)" +
+		"PRIMARY KEY (`version`)" +
 		")"
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("failed to create schema_migrations table: %v", err)
 	}
-	return nil
+	return sc.normalizeSchemaMigrationsTable(db, prefix)
 }
 
-func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB, prefix string) error {
+func (sc *StartupController) normalizeSchemaMigrationsTable(db *sql.DB, prefix string) error {
 	tableName := prefix + "schema_migrations"
-	tableExistsQuery := `
-			SELECT COUNT(*)
-			FROM information_schema.TABLES
-			WHERE TABLE_SCHEMA = DATABASE()
-				AND TABLE_NAME = ?
-	`
-	columnExistsQuery := `
-			SELECT COUNT(*)
-			FROM information_schema.COLUMNS
-			WHERE TABLE_SCHEMA = DATABASE()
-				AND TABLE_NAME = ?
-				AND COLUMN_NAME = 'service'
-	`
-
-	var tableCount int
-	if err := db.QueryRow(tableExistsQuery, tableName).Scan(&tableCount); err != nil {
-		return fmt.Errorf("failed to check schema_migrations table: %v", err)
-	}
-	if tableCount == 0 {
-		return nil
-	}
-
-	var columnCount int
-	if err := db.QueryRow(columnExistsQuery, tableName).Scan(&columnCount); err != nil {
-		return fmt.Errorf("failed to check schema_migrations service column: %v", err)
-	}
-
-	if columnCount == 0 {
-		query := "ALTER TABLE `" + tableName + "` ADD COLUMN `service` varchar(16) NOT NULL DEFAULT '" + schemaMigrationService + "' AFTER `dirty`"
-		if _, err := db.Exec(query); err != nil {
-			return fmt.Errorf("failed to add schema_migrations service column: %v", err)
-		}
-	}
-
-	// Backfill any rows that don't have a service value.
-	if _, err := db.Exec("UPDATE `" + tableName + "` SET `service` = '" + schemaMigrationService + "' WHERE `service` IS NULL OR `service` = ''"); err != nil {
-		return fmt.Errorf("failed to backfill schema_migrations service: %v", err)
-	}
-
-	// Keep the real table shape: PRIMARY KEY (`service`) only.
-	pkQuery := `
-		SELECT COLUMN_NAME
-		FROM information_schema.KEY_COLUMN_USAGE
-		WHERE TABLE_SCHEMA = DATABASE()
-			AND TABLE_NAME = ?
-			AND CONSTRAINT_NAME = 'PRIMARY'
-		ORDER BY ORDINAL_POSITION
-	`
-	rows, err := db.Query(pkQuery, tableName)
+	hasServiceColumn, err := sc.schemaMigrationsColumnExists(db, tableName, "service")
 	if err != nil {
-		return fmt.Errorf("failed to check schema_migrations primary key: %v", err)
+		return err
 	}
-	defer rows.Close()
 
-	var pkColumns []string
-	for rows.Next() {
-		var column string
-		if err := rows.Scan(&column); err != nil {
-			return fmt.Errorf("failed to read schema_migrations primary key: %v", err)
+	pkColumns, err := sc.schemaMigrationsPrimaryKeyColumns(db, tableName)
+	if err != nil {
+		return err
+	}
+
+	if hasServiceColumn {
+		var rowCount int
+		if err := db.QueryRow("SELECT COUNT(*) FROM `" + tableName + "`").Scan(&rowCount); err != nil {
+			return fmt.Errorf("failed to count schema_migrations rows: %v", err)
 		}
-		pkColumns = append(pkColumns, column)
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("failed to iterate schema_migrations primary key: %v", err)
+		if rowCount > 1 {
+			return fmt.Errorf("%s contains %d rows; cannot drop legacy service column automatically", tableName, rowCount)
+		}
+
+		if len(pkColumns) > 0 && (len(pkColumns) != 1 || pkColumns[0] != "version") {
+			if _, err := db.Exec("ALTER TABLE `" + tableName + "` DROP PRIMARY KEY"); err != nil {
+				return fmt.Errorf("failed to drop legacy schema_migrations primary key: %v", err)
+			}
+			pkColumns = nil
+		}
+
+		if _, err := db.Exec("ALTER TABLE `" + tableName + "` DROP COLUMN `service`"); err != nil {
+			return fmt.Errorf("failed to drop legacy schema_migrations service column: %v", err)
+		}
 	}
 
-	if len(pkColumns) == 1 && pkColumns[0] == "service" {
+	if len(pkColumns) == 1 && pkColumns[0] == "version" {
 		return nil
 	}
 	if len(pkColumns) > 0 {
@@ -535,11 +494,58 @@ func (sc *StartupController) ensureSchemaMigrationServiceColumn(db *sql.DB, pref
 			return fmt.Errorf("failed to drop schema_migrations primary key: %v", err)
 		}
 	}
-	if _, err := db.Exec("ALTER TABLE `" + tableName + "` ADD PRIMARY KEY (`service`)"); err != nil {
-		return fmt.Errorf("failed to add schema_migrations primary key: %v", err)
+	if _, err := db.Exec("ALTER TABLE `" + tableName + "` ADD PRIMARY KEY (`version`)"); err != nil {
+		return fmt.Errorf("failed to add schema_migrations version primary key: %v", err)
 	}
 
 	return nil
+}
+
+func (sc *StartupController) schemaMigrationsColumnExists(db *sql.DB, tableName string, column string) (bool, error) {
+	const query = `
+                SELECT COUNT(*)
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                        AND TABLE_NAME = ?
+                        AND COLUMN_NAME = ?
+        `
+
+	var count int
+	if err := db.QueryRow(query, tableName, column).Scan(&count); err != nil {
+		return false, fmt.Errorf("failed to check %s %s column: %v", tableName, column, err)
+	}
+	return count > 0, nil
+}
+
+func (sc *StartupController) schemaMigrationsPrimaryKeyColumns(db *sql.DB, tableName string) ([]string, error) {
+	const query = `
+                SELECT COLUMN_NAME
+                FROM information_schema.KEY_COLUMN_USAGE
+                WHERE TABLE_SCHEMA = DATABASE()
+                        AND TABLE_NAME = ?
+                        AND CONSTRAINT_NAME = 'PRIMARY'
+                ORDER BY ORDINAL_POSITION
+        `
+
+	rows, err := db.Query(query, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check schema_migrations primary key: %v", err)
+	}
+	defer rows.Close()
+
+	var pkColumns []string
+	for rows.Next() {
+		var column string
+		if err := rows.Scan(&column); err != nil {
+			return nil, fmt.Errorf("failed to read schema_migrations primary key: %v", err)
+		}
+		pkColumns = append(pkColumns, column)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate schema_migrations primary key: %v", err)
+	}
+
+	return pkColumns, nil
 }
 
 func (sc *StartupController) FetchMetadata() error {

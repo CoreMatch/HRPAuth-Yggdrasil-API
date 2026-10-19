@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -379,6 +380,27 @@ func (s *prefixedSource) wrapReader(r io.ReadCloser) io.ReadCloser {
 	return io.NopCloser(strings.NewReader(sContent))
 }
 
+// maxEmbeddedMigrationVersion scans embedded .up.sql files and returns the
+// highest migration version number found, or 0 if none.
+func (sc *StartupController) maxEmbeddedMigrationVersion(f fs.FS) uint {
+	entries, err := fs.ReadDir(f, ".")
+	if err != nil {
+		return 0
+	}
+	var max uint
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".up.sql") {
+			continue
+		}
+		var v uint
+		if _, err := fmt.Sscanf(name, "%d", &v); err == nil && v > max {
+			max = v
+		}
+	}
+	return max
+}
+
 // EnsureMigrations runs all pending database migrations via golang-migrate.
 // It is idempotent — if the database is already at the latest version,
 // migrate.ErrNoChange is silently ignored.
@@ -427,6 +449,18 @@ func (sc *StartupController) EnsureMigrations() error {
 			log.Printf("warning: migration close error: %v", dbErr)
 		}
 	}()
+
+	// If the database version exceeds the highest available migration (e.g.
+	// after a migration squash), golang-migrate cannot resolve the path.
+	// Detect this and force the version down to the latest available.
+	if dbVer, _, verErr := m.Version(); verErr == nil {
+		if maxVer := sc.maxEmbeddedMigrationVersion(migrations.FS); maxVer > 0 && dbVer > maxVer {
+			log.Printf("Database migration version %d exceeds latest embedded migration %d (post-squash state), resetting", dbVer, maxVer)
+			if forceErr := m.Force(int(maxVer)); forceErr != nil {
+				return fmt.Errorf("failed to force migration version to %d: %v", maxVer, forceErr)
+			}
+		}
+	}
 
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		var dirtyErr migrate.ErrDirty

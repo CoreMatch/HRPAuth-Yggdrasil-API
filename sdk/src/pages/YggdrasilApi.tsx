@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Box, Card, CardContent, Grid, Button, Typography } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
-import { getRealBackendUrl } from '../utils/proxy';
+import { getRealBackendUrl, buildServiceUrl } from '../utils/proxy';
 
 function CodeBlock({ children }: { children: string }) {
   return (
@@ -33,7 +33,7 @@ export default function YggdrasilApi() {
   useEffect(() => {
     let mounted = true;
     getRealBackendUrl().then((url: string) => {
-      if (mounted) setBaseUrl(url);
+      if (mounted) setBaseUrl(buildServiceUrl(url, '').replace(/\/$/, ''));
     });
     return () => {
       mounted = false;

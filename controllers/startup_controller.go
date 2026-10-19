@@ -660,6 +660,7 @@ func buildRelayRules(base string, prefix string) []clients.RelayRule {
 	base = strings.TrimRight(base, "/")
 	prefix = strings.TrimRight(prefix, "/")
 	paths := []string{
+		"/",
 		"/authserver",
 		"/sessionserver",
 		"/api/profiles/minecraft",

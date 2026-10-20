@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "name": "yggdrasil-api",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "routes": [
     {
       "path": "/mojang-bind",

@@ -118,6 +118,10 @@ func main() {
 	botCleanupCtrl := controllers.NewBotUserCleanupController()
 	botCleanupCtrl.Start(24 * time.Hour)
 
+	mbeTimeoutCtrl := controllers.NewMBETimeoutCleanupController()
+	mbeTimeoutCtrl.Start(30 * time.Second)
+	mbeTimeoutCtrl.LogStarted()
+
 	r := gin.Default()
 
 	r.Use(controllers.RequestIDMiddleware())
@@ -127,11 +131,22 @@ func main() {
 	yggdrasilCtrl := controllers.NewYggdrasilController()
 	registerCtrl := controllers.NewRegisterController()
 	internalCtrl := controllers.NewInternalController()
+	playerCtrl := controllers.NewPlayerController()
 
 	r.GET("/", yggdrasilCtrl.Meta)
 	r.POST("/register", registerCtrl.Register)
 	r.POST("/internal/proxy-register", internalCtrl.ProxyRegister)
 	r.GET("/internal/heartbeat", internalCtrl.Heartbeat)
+
+	player := r.Group("/player")
+	{
+		player.GET("", playerCtrl.Info)
+		player.POST("/mojang-bind-enable", playerCtrl.EnableMojangBind)
+		player.POST("/mojang-bind-disable", playerCtrl.DisableMojangBind)
+	}
+
+	r.GET("/mojang/profile/:uuid", playerCtrl.Profile)
+	r.GET("/texture/mojang/:uuid", playerCtrl.Texture)
 
 	auth := r.Group("/authserver")
 	{

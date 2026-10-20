@@ -4,9 +4,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
-import { enableMojangBind, disableMojangBind } from '../api/user';
+import { getPlayerInfo, enableMojangBind, disableMojangBind } from '../api/user';
 import { mojangTextureUrl, fetchMojangProfile } from '../api/texture';
-import { getAuthToken, getMbeEnabled, setMbeEnabled, BackendUrl, request, dataCache } from '../utils/proxy';
+import { getAuthToken, getMbeEnabled, setMbeEnabled, dataCache } from '../utils/proxy';
 
 const SkinViewer3D = lazy(() => import('../components/SkinViewer3D'));
 
@@ -79,20 +79,23 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
       }
 
       try {
-        const resp = await request(`${BackendUrl}/user`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
-
+        // 解耦后 mbe/mojang_uuid 由本仓库 (yggdrasil-api) 提供。
+        const resp = await getPlayerInfo();
         if (resp.success && resp.data) {
-          dataCache.setUser(resp.data);
-          const apiMbe = resp.data.mbe;
-          setMbeEnabledState(apiMbe !== undefined ? Boolean(apiMbe) : (getMbeEnabled() ?? false));
-          const uuid = resp.data.mojang_uuid;
-          if (uuid) {
-            setMojangUuid(uuid);
-            fetchMojangProfileLocal(uuid);
+          const info = resp.data;
+          // 把 mbe/mojang_uuid 合进 dataCache，避免覆盖 prefetch 写入的 email/username/avatar 等。
+          const existing = dataCache.getUser() ?? {};
+          dataCache.setUser({
+            ...existing,
+            mbe: info.mbe,
+            mojang_uuid: info.mojang_uuid,
+          });
+          setMbeEnabledState(Boolean(info.mbe));
+          if (info.mojang_uuid) {
+            setMojangUuid(info.mojang_uuid);
+            fetchMojangProfileLocal(info.mojang_uuid);
+          } else {
+            setMojangUuid(null);
           }
         } else {
           setMbeEnabledState(getMbeEnabled() ?? false);
@@ -123,10 +126,20 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
         ? await disableMojangBind()
         : await enableMojangBind();
 
-      if (resp.success) {
-        const newMbe = Boolean(resp.data?.mbe);
+      if (resp.success && resp.data) {
+        const newMbe = Boolean(resp.data.mbe);
         setMbeEnabledState(newMbe);
         setMbeEnabled(newMbe);
+        // 同步 dataCache，绑定/解绑后让其他组件也能读到新状态。
+        const existing = dataCache.getUser() ?? {};
+        dataCache.setUser({
+          ...existing,
+          mbe: resp.data.mbe,
+          mojang_uuid: resp.data.mojang_uuid,
+        });
+        if (resp.data.mojang_uuid) {
+          setMojangUuid(resp.data.mojang_uuid);
+        }
       } else {
         setMbeError(resp.message || t('mojangBind.operationFailed'));
       }

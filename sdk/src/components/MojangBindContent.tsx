@@ -84,12 +84,14 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
         if (resp.success && resp.data) {
           const info = resp.data;
           // 把 mbe/mojang_uuid 合进 dataCache，避免覆盖 prefetch 写入的 email/username/avatar 等。
-          const existing = dataCache.getUser() ?? {};
-          dataCache.setUser({
-            ...existing,
-            mbe: info.mbe,
-            mojang_uuid: info.mojang_uuid,
-          });
+          const existing = dataCache.getUser();
+          if (existing) {
+            dataCache.setUser({
+              ...existing,
+              mbe: info.mbe,
+              mojang_uuid: info.mojang_uuid,
+            });
+          }
           setMbeEnabledState(Boolean(info.mbe));
           if (info.mojang_uuid) {
             setMojangUuid(info.mojang_uuid);
@@ -131,12 +133,14 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
         setMbeEnabledState(newMbe);
         setMbeEnabled(newMbe);
         // 同步 dataCache，绑定/解绑后让其他组件也能读到新状态。
-        const existing = dataCache.getUser() ?? {};
-        dataCache.setUser({
-          ...existing,
-          mbe: resp.data.mbe,
-          mojang_uuid: resp.data.mojang_uuid,
-        });
+        const existing = dataCache.getUser();
+        if (existing) {
+          dataCache.setUser({
+            ...existing,
+            mbe: resp.data.mbe,
+            mojang_uuid: resp.data.mojang_uuid,
+          });
+        }
         if (resp.data.mojang_uuid) {
           setMojangUuid(resp.data.mojang_uuid);
         }

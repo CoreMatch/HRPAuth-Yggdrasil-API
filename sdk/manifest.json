@@ -4,40 +4,12 @@
   "version": "1.0.3",
   "routes": [
     {
-      "path": "/mojang-bind",
-      "module": "src/pages/MojangBind",
-      "title": "Mojang Binding"
-    },
-    {
-      "path": "/texture-management",
-      "module": "src/pages/TextureManagement",
-      "title": "Texture Management"
-    },
-    {
       "path": "/yggdrasil-api",
       "module": "src/pages/YggdrasilApi",
       "title": "Yggdrasil API"
     }
   ],
-  "menu": [
-    {
-      "label": "Texture Management",
-      "path": "/texture-management"
-    },
-    {
-      "label": "Mojang Binding",
-      "path": "/mojang-bind"
-    }
-  ],
   "dashboard": [
-    {
-      "label": "Minecraft Assets",
-      "path": "/texture-management"
-    },
-    {
-      "label": "Mojang Binding",
-      "path": "/mojang-bind"
-    },
     {
       "label": "Yggdrasil API",
       "path": "/yggdrasil-api"

@@ -1,4 +1,4 @@
-import { BackendUrl, buildServiceUrl, request, type ApiResponse } from '../utils/proxy';
+import { BackendUrl, buildServiceUrl, getAuthToken, request, type ApiResponse } from '../utils/proxy';
 
 // 解耦后 Game Account (Mojang bind) 字段已迁到本仓库 (yggdrasil-api)，
 // 所有 /player/* 调用走 buildServiceUrl 拼接 /yggdrasil-api 前缀。
@@ -19,6 +19,11 @@ export interface GameProfile {
 }
 
 export type ProfileCreationMode = 'random' | 'custom' | 'mojang';
+
+function coreAuthHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export async function getPlayerInfo(): Promise<ApiResponse<PlayerInfo>> {
   return request<PlayerInfo>(buildServiceUrl(BackendUrl, PLAYER_BASE), {
@@ -43,7 +48,7 @@ export async function disableMojangBind(): Promise<ApiResponse<PlayerInfo>> {
 export async function getGameProfile(): Promise<ApiResponse<{ profile: GameProfile | null }>> {
   return request<{ profile: GameProfile | null }>(
     buildServiceUrl(BackendUrl, `${PLAYER_BASE}/profile`),
-    { method: 'GET' },
+    { method: 'GET', headers: coreAuthHeaders() },
   );
 }
 
@@ -54,7 +59,7 @@ export async function createGameProfile(input: {
 }): Promise<ApiResponse<GameProfile>> {
   return request<GameProfile>(buildServiceUrl(BackendUrl, `${PLAYER_BASE}/profile`), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...coreAuthHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }

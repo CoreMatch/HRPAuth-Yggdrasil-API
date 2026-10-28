@@ -59,7 +59,12 @@ func (pc *PlayerController) Info(c *gin.Context) {
 func (pc *PlayerController) GetGameProfile(c *gin.Context) {
 	profile, err := pc.playerSvc.GetProfile(extractBearer(c))
 	if err != nil {
-		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing bearer token")
+		if errors.Is(err, services.ErrCoreTokenInvalid) {
+			respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing Core bearer token")
+			return
+		}
+		log.Printf("[YGG-BIZ] request_id=%s action=get_profile result=failed err=%v", c.GetString("request_id"), err)
+		respondError(c, http.StatusInternalServerError, CodeInternalError, "failed to load profile")
 		return
 	}
 	respondOK(c, "ok", gin.H{"profile": profile})
@@ -86,7 +91,12 @@ func (pc *PlayerController) CreateGameProfile(c *gin.Context) {
 	bearer := extractBearer(c)
 	existing, err := pc.playerSvc.GetProfile(bearer)
 	if err != nil {
-		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing bearer token")
+		if errors.Is(err, services.ErrCoreTokenInvalid) {
+			respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing Core bearer token")
+			return
+		}
+		log.Printf("[YGG-BIZ] request_id=%s action=create_profile result=lookup_failed err=%v", c.GetString("request_id"), err)
+		respondError(c, http.StatusInternalServerError, CodeInternalError, "failed to check profile")
 		return
 	}
 	if existing != nil {
@@ -155,7 +165,9 @@ func (pc *PlayerController) CreateGameProfile(c *gin.Context) {
 			respondError(c, http.StatusConflict, CodeProfileNameConflict, "profile name is already in use")
 		case errors.Is(err, services.ErrProfileNameUnavailable):
 			respondError(c, http.StatusBadGateway, CodeInternalError, "could not determine a profile name for this account")
-		case errors.Is(err, services.ErrAccountNotBound):
+		case errors.Is(err, services.ErrProfileCreationDenied):
+			respondError(c, http.StatusForbidden, CodeProfileAccessDenied, "profile creation is not allowed for this account")
+		case errors.Is(err, services.ErrCoreTokenInvalid), errors.Is(err, services.ErrAccountNotBound):
 			respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing bearer token")
 		default:
 			log.Printf("[YGG-BIZ] request_id=%s action=create_profile result=failed err=%v", c.GetString("request_id"), err)

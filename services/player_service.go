@@ -38,11 +38,13 @@ type PlayerInfo struct {
 	CBH        bool   `json:"cbh"`         // 1 = 已被人认领 (非 bot)
 }
 
-// ErrAccountNotBound 当 Bearer token 无法解析到本地 Account 时返回。
+// ErrAccountNotBound 当 Bearer token 无法映射到本地账号时返回。
 var ErrAccountNotBound = errors.New("player account not linked")
+var ErrCoreTokenInvalid = errors.New("Core token verification failed")
 
 var (
 	ErrProfileAlreadyExists   = errors.New("profile already exists")
+	ErrProfileCreationDenied  = errors.New("profile creation denied for this account")
 	ErrProfileUUIDInvalid     = errors.New("invalid profile uuid")
 	ErrProfileUUIDConflict    = errors.New("profile uuid already exists")
 	ErrProfileNameConflict    = errors.New("profile name already exists")
@@ -73,9 +75,19 @@ func (ps *PlayerService) ResolveAccount(bearer string) (*models.Account, error) 
 	return &account, nil
 }
 
-// GetProfile returns the caller's profile, or nil when it has not been created.
+// GetProfile verifies the caller with Core and returns nil when either the
+// local account or its profile has not been created yet.
 func (ps *PlayerService) GetProfile(bearer string) (*GameProfile, error) {
-	account, err := ps.ResolveAccount(bearer)
+	user, err := ps.coreClient.VerifyToken(strings.TrimSpace(bearer))
+	if err != nil || user == nil || user.UUID == "" {
+		return nil, ErrCoreTokenInvalid
+	}
+
+	var account models.Account
+	err = database.DB.Where("core_user_id = ?", user.UUID).First(&account).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -92,12 +104,12 @@ func (ps *PlayerService) GetProfile(bearer string) (*GameProfile, error) {
 	return &GameProfile{ID: profile.ID, Name: profile.Name, Model: profile.Model}, nil
 }
 
-// CreateProfile creates the account's single profile. premiumName is only set
-// after the controller has looked up the supplied Mojang username.
+// CreateProfile creates the caller's local account and single profile on
+// explicit request. premiumName is set after looking up a Mojang username.
 func (ps *PlayerService) CreateProfile(bearer, profileID, premiumName string) (*GameProfile, error) {
-	account, err := ps.ResolveAccount(bearer)
-	if err != nil {
-		return nil, err
+	user, coreErr := ps.coreClient.VerifyToken(strings.TrimSpace(bearer))
+	if coreErr != nil || user == nil || user.UUID == "" {
+		return nil, ErrCoreTokenInvalid
 	}
 
 	profileID = normalizeProfileUUID(profileID)
@@ -106,36 +118,47 @@ func (ps *PlayerService) CreateProfile(bearer, profileID, premiumName string) (*
 	}
 
 	profileName := premiumName
-	if profileName == "" && account.CoreUserID != nil {
-		profileName = ps.authSvc.getCachedUsername(*account.CoreUserID)
+	if profileName == "" {
+		profileName = user.Username
 	}
 	if profileName == "" || len(profileName) > 30 {
 		return nil, ErrProfileNameUnavailable
 	}
 
-	profile := models.Profile{
-		ID:        profileID,
-		AccountID: account.ID,
-		Name:      profileName,
-		Model:     "default",
-	}
+	var profile models.Profile
 
-	err = database.DB.Transaction(func(tx *gorm.DB) error {
+	txErr := database.DB.Transaction(func(tx *gorm.DB) error {
+		newAccount := models.Account{
+			CoreUserID: &user.UUID,
+			CBH:        true,
+		}
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "core_user_id"}},
+			DoNothing: true,
+		}).Create(&newAccount).Error; err != nil {
+			return err
+		}
+
 		var lockedAccount models.Account
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&lockedAccount, account.ID).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("core_user_id = ?", user.UUID).First(&lockedAccount).Error; err != nil {
 			return err
 		}
 
 		var existing models.Profile
-		if err := tx.Where("account_id = ?", account.ID).First(&existing).Error; err == nil {
+		if err := tx.Where("account_id = ?", lockedAccount.ID).First(&existing).Error; err == nil {
 			return ErrProfileAlreadyExists
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 
+		if !lockedAccount.CBH {
+			return ErrProfileCreationDenied
+		}
+
 		if premiumName != "" {
 			var uuidOwner models.Account
-			err := tx.Where("mojang_uuid = ? AND id <> ?", profileID, account.ID).First(&uuidOwner).Error
+			err := tx.Where("mojang_uuid = ? AND id <> ?", profileID, lockedAccount.ID).First(&uuidOwner).Error
 			if err == nil {
 				return ErrProfileUUIDConflict
 			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -154,17 +177,23 @@ func (ps *PlayerService) CreateProfile(bearer, profileID, premiumName string) (*
 			return err
 		}
 
+		profile = models.Profile{
+			ID:        profileID,
+			AccountID: lockedAccount.ID,
+			Name:      profileName,
+			Model:     "default",
+		}
 		return tx.Create(&profile).Error
 	})
-	if err != nil {
+	if txErr != nil {
 		var mysqlErr *mysqlDriver.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		if errors.As(txErr, &mysqlErr) && mysqlErr.Number == 1062 {
 			if strings.Contains(strings.ToLower(mysqlErr.Message), "name") {
 				return nil, ErrProfileNameConflict
 			}
 			return nil, ErrProfileUUIDConflict
 		}
-		return nil, err
+		return nil, txErr
 	}
 
 	return &GameProfile{ID: profile.ID, Name: profile.Name, Model: profile.Model}, nil

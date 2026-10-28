@@ -81,6 +81,7 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"relay_url":         "http://localhost:2770",
 			"relay_path_prefix": config.DefaultRelayPathPrefix,
 			"profile_cards": map[string]interface{}{
+				"Game Profile":     150,
 				"Minecraft Assets": 200,
 				"Mojang Binding":   100,
 			},
@@ -705,6 +706,8 @@ func buildRelayRules(base string, prefix string) []clients.RelayRule {
 		"/skins",
 		"/minecraftservices",
 		"/register",
+		"/player",
+		"/mojang",
 	}
 
 	relays := make([]clients.RelayRule, 0, len(paths))

@@ -37,6 +37,34 @@ func TestMigrateConfigUpToDate(t *testing.T) {
 	}
 }
 
+func TestMigrateConfigAddsGameProfileCardPriority(t *testing.T) {
+	cfg := map[string]interface{}{
+		"version": "3",
+		"microservice": map[string]interface{}{
+			"profile_cards": map[string]interface{}{
+				"Minecraft Assets": 200,
+				"Mojang Binding":   100,
+			},
+		},
+	}
+
+	out, changed, err := MigrateConfig(cfg, tokenGen)
+	if err != nil {
+		t.Fatalf("unexpected migration error: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected migration to run")
+	}
+	ms := out["microservice"].(map[string]interface{})
+	cards := ms["profile_cards"].(map[string]interface{})
+	if cards["Game Profile"] != 150 {
+		t.Fatalf("expected Game Profile priority 150, got %v", cards["Game Profile"])
+	}
+	if cards["Minecraft Assets"] != 200 || cards["Mojang Binding"] != 100 {
+		t.Fatal("migration should preserve existing profile card priorities")
+	}
+}
+
 func TestMigrateConfigFutureVersion(t *testing.T) {
 	cfg := map[string]interface{}{
 		"version": "8",

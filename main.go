@@ -141,6 +141,8 @@ func main() {
 	player := r.Group("/player")
 	{
 		player.GET("", playerCtrl.Info)
+		player.GET("/profile", playerCtrl.GetGameProfile)
+		player.POST("/profile", playerCtrl.CreateGameProfile)
 		player.POST("/mojang-bind-enable", playerCtrl.EnableMojangBind)
 		player.POST("/mojang-bind-disable", playerCtrl.DisableMojangBind)
 	}

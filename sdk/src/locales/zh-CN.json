@@ -57,6 +57,22 @@
     "capeAvailable": "有披风",
     "noSkinData": "暂无皮肤数据"
   },
+  "profileCreation": {
+    "description": "创建后将用于 Yggdrasil 登录。此 UUID 独立于正版账号绑定信息；每个账号只能创建一个 profile。正版模式仅查询公开 UUID，不验证账号所有权；UUID 已被占用时会拒绝创建。",
+    "random": "随机生成 UUID",
+    "custom": "使用自定义 UUID",
+    "mojang": "从正版账号查询 UUID",
+    "uuid": "Profile UUID",
+    "customHint": "请输入 32 位十六进制 UUID，可带连字符。",
+    "mojangUsername": "正版 Minecraft 用户名",
+    "mojangHint": "将通过 Mojang 查询该用户名对应的 UUID 和名称。",
+    "create": "创建 Profile",
+    "creating": "正在创建...",
+    "created": "Profile 已就绪",
+    "name": "名称",
+    "loadFailed": "读取 Profile 状态失败",
+    "createFailed": "Profile 创建失败"
+  },
   "yggdrasil": {
     "intro": "内置 Yggdrasil API 服务 (Zggdrasil) 可用。",
     "serverAddress": "服务器地址",

@@ -103,6 +103,7 @@ func TestBuildDefaultConfigIncludesDecoupledDefaults(t *testing.T) {
 func TestBuildRelayRulesAddsPrefixToAllDestinations(t *testing.T) {
 	got := buildRelayRules("http://localhost:2770/", "/yggdrasil-api")
 	want := []clients.RelayRule{
+		{Dest: "/yggdrasil-api/", Source: "http://localhost:2770/"},
 		{Dest: "/yggdrasil-api/authserver", Source: "http://localhost:2770/authserver"},
 		{Dest: "/yggdrasil-api/sessionserver", Source: "http://localhost:2770/sessionserver"},
 		{Dest: "/yggdrasil-api/api/profiles/minecraft", Source: "http://localhost:2770/api/profiles/minecraft"},
@@ -113,6 +114,8 @@ func TestBuildRelayRulesAddsPrefixToAllDestinations(t *testing.T) {
 		{Dest: "/yggdrasil-api/skins", Source: "http://localhost:2770/skins"},
 		{Dest: "/yggdrasil-api/minecraftservices", Source: "http://localhost:2770/minecraftservices"},
 		{Dest: "/yggdrasil-api/register", Source: "http://localhost:2770/register"},
+		{Dest: "/yggdrasil-api/player", Source: "http://localhost:2770/player"},
+		{Dest: "/yggdrasil-api/mojang", Source: "http://localhost:2770/mojang"},
 	}
 
 	if len(got) != len(want) {

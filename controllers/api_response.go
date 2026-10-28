@@ -42,6 +42,8 @@ const (
 	CodeProfileNotFound                = "profile_not_found"
 	CodeProfileAccessDenied            = "profile_access_denied"
 	CodeProfileNameInvalid             = "invalid_profile_name"
+	CodeProfileAlreadyExists           = "profile_already_exists"
+	CodeProfileUUIDConflict            = "profile_uuid_conflict"
 	CodeUsernameInvalid                = "invalid_username"
 	CodeUsernameConflict               = "username_conflict"
 	CodeProfileNameConflict            = "profile_name_conflict"

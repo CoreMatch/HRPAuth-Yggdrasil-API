@@ -57,6 +57,22 @@
     "capeAvailable": "Cape available",
     "noSkinData": "No skin data available"
   },
+  "profileCreation": {
+    "description": "Create the profile used for Yggdrasil login. Its UUID is independent from Mojang account binding. Each account can create one profile. Premium mode only looks up a public UUID and does not verify account ownership; creation is rejected if the UUID is already claimed.",
+    "random": "Generate a random UUID",
+    "custom": "Use a custom UUID",
+    "mojang": "Look up a premium account UUID",
+    "uuid": "Profile UUID",
+    "customHint": "Enter a 32-character hexadecimal UUID; hyphens are optional.",
+    "mojangUsername": "Premium Minecraft username",
+    "mojangHint": "Mojang will be queried for this username's UUID and profile name.",
+    "create": "Create Profile",
+    "creating": "Creating...",
+    "created": "Profile created",
+    "name": "Name",
+    "loadFailed": "Failed to load profile status",
+    "createFailed": "Failed to create profile"
+  },
   "yggdrasil": {
     "intro": "Built-in Yggdrasil API service (Zggdrasil) is available.",
     "serverAddress": "Server Address",

@@ -14,6 +14,7 @@ database:
 microservice:
     name: HRPAuth-Yggdrasil-API
     profile_cards:
+        Game Profile: 150
         Minecraft Assets: 200
         Mojang Binding: 100
     relay_path_prefix: /yggdrasil-api
@@ -35,7 +36,7 @@ site:
     implementation: HRPAuth Yggdrasil API Provider
     name: HRPAuth
     version: 1.0.0
-version: "3"
+version: "4"
 yggdrasil:
     feature_flags:
         enable_ip_check: false

@@ -12,6 +12,14 @@ export interface PlayerInfo {
   cbh: boolean;
 }
 
+export interface GameProfile {
+  id: string;
+  name: string;
+  model?: string;
+}
+
+export type ProfileCreationMode = 'random' | 'custom' | 'mojang';
+
 export async function getPlayerInfo(): Promise<ApiResponse<PlayerInfo>> {
   return request<PlayerInfo>(buildServiceUrl(BackendUrl, PLAYER_BASE), {
     method: 'GET',
@@ -29,5 +37,24 @@ export async function disableMojangBind(): Promise<ApiResponse<PlayerInfo>> {
   return request<PlayerInfo>(buildServiceUrl(BackendUrl, `${PLAYER_BASE}/mojang-bind-disable`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export async function getGameProfile(): Promise<ApiResponse<{ profile: GameProfile | null }>> {
+  return request<{ profile: GameProfile | null }>(
+    buildServiceUrl(BackendUrl, `${PLAYER_BASE}/profile`),
+    { method: 'GET' },
+  );
+}
+
+export async function createGameProfile(input: {
+  mode: ProfileCreationMode;
+  uuid?: string;
+  username?: string;
+}): Promise<ApiResponse<GameProfile>> {
+  return request<GameProfile>(buildServiceUrl(BackendUrl, `${PLAYER_BASE}/profile`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
   });
 }

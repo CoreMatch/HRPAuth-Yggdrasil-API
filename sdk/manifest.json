@@ -17,6 +17,11 @@
   ],
   "profile_cards": [
     {
+      "title": "Game Profile",
+      "module": "src/profile/ProfileCreationCard",
+      "priority": 150
+    },
+    {
       "title": "Minecraft Assets",
       "module": "src/profile/TextureManagementCard",
       "priority": 200

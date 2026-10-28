@@ -3,9 +3,11 @@ package controllers
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -54,6 +56,131 @@ func (pc *PlayerController) Info(c *gin.Context) {
 	respondOK(c, "ok", info)
 }
 
+func (pc *PlayerController) GetGameProfile(c *gin.Context) {
+	profile, err := pc.playerSvc.GetProfile(extractBearer(c))
+	if err != nil {
+		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing bearer token")
+		return
+	}
+	respondOK(c, "ok", gin.H{"profile": profile})
+}
+
+type createGameProfileRequest struct {
+	Mode     string `json:"mode" binding:"required"`
+	UUID     string `json:"uuid"`
+	Username string `json:"username"`
+}
+
+type mojangNameLookupResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func (pc *PlayerController) CreateGameProfile(c *gin.Context) {
+	var req createGameProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, CodeInvalidJSONBody, "invalid request body")
+		return
+	}
+
+	bearer := extractBearer(c)
+	existing, err := pc.playerSvc.GetProfile(bearer)
+	if err != nil {
+		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing bearer token")
+		return
+	}
+	if existing != nil {
+		respondError(c, http.StatusConflict, CodeProfileAlreadyExists, "a profile has already been created for this account")
+		return
+	}
+
+	profileID := ""
+	premiumName := ""
+	switch req.Mode {
+	case "random":
+		profileID = utils.GenerateUnsignedUUID()
+		if profileID == "" {
+			respondError(c, http.StatusInternalServerError, CodeInternalError, "failed to generate profile uuid")
+			return
+		}
+	case "custom":
+		profileID = req.UUID
+	case "mojang":
+		if !isValidMojangUsername(req.Username) {
+			respondError(c, http.StatusBadRequest, CodeUsernameInvalid, "invalid Mojang username")
+			return
+		}
+
+		upstream, err := pc.httpClient.Get("https://api.mojang.com/users/profiles/minecraft/" + url.PathEscape(req.Username))
+		if err != nil {
+			respondError(c, http.StatusBadGateway, CodeInternalError, "failed to reach Mojang profile service")
+			return
+		}
+		defer upstream.Body.Close()
+		if upstream.StatusCode != http.StatusOK {
+			if upstream.StatusCode == http.StatusNoContent || upstream.StatusCode == http.StatusNotFound {
+				respondError(c, http.StatusBadRequest, CodeUserNotFound, "Mojang username was not found")
+				return
+			}
+			respondError(c, http.StatusBadGateway, CodeInternalError, "Mojang profile service returned an error")
+			return
+		}
+
+		var mojangProfile mojangNameLookupResponse
+		if err := json.NewDecoder(io.LimitReader(upstream.Body, 1<<20)).Decode(&mojangProfile); err != nil {
+			respondError(c, http.StatusBadGateway, CodeInternalError, "failed to decode Mojang profile")
+			return
+		}
+		if mojangProfile.ID == "" || mojangProfile.Name == "" {
+			respondError(c, http.StatusBadGateway, CodeInternalError, "Mojang profile response was incomplete")
+			return
+		}
+		profileID = mojangProfile.ID
+		premiumName = mojangProfile.Name
+	default:
+		respondError(c, http.StatusBadRequest, CodeInvalidRequest, "mode must be random, custom, or mojang")
+		return
+	}
+
+	profile, err := pc.playerSvc.CreateProfile(bearer, profileID, premiumName)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrProfileAlreadyExists):
+			respondError(c, http.StatusConflict, CodeProfileAlreadyExists, "a profile has already been created for this account")
+		case errors.Is(err, services.ErrProfileUUIDInvalid):
+			respondError(c, http.StatusBadRequest, CodeInvalidMojangUUID, "profile uuid must be 32 hexadecimal characters")
+		case errors.Is(err, services.ErrProfileUUIDConflict):
+			respondError(c, http.StatusConflict, CodeProfileUUIDConflict, "profile uuid is already in use")
+		case errors.Is(err, services.ErrProfileNameConflict):
+			respondError(c, http.StatusConflict, CodeProfileNameConflict, "profile name is already in use")
+		case errors.Is(err, services.ErrProfileNameUnavailable):
+			respondError(c, http.StatusBadGateway, CodeInternalError, "could not determine a profile name for this account")
+		case errors.Is(err, services.ErrAccountNotBound):
+			respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing bearer token")
+		default:
+			log.Printf("[YGG-BIZ] request_id=%s action=create_profile result=failed err=%v", c.GetString("request_id"), err)
+			respondError(c, http.StatusInternalServerError, CodeInternalError, "failed to create profile")
+		}
+		return
+	}
+
+	log.Printf("[YGG-BIZ] request_id=%s action=create_profile profile=%s/%s result=success", c.GetString("request_id"), profile.ID, profile.Name)
+	respondCreated(c, "profile created", profile)
+}
+
+func isValidMojangUsername(username string) bool {
+	if len(username) < 1 || len(username) > 16 {
+		return false
+	}
+	for _, char := range username {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || char == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 // EnableMojangBind POST /player/mojang-bind-enable — mbe=1 并挂 15 分钟自动回收。
 func (pc *PlayerController) EnableMojangBind(c *gin.Context) {
 	bearer := extractBearer(c)
@@ -90,9 +217,9 @@ type mojangProfileResponse struct {
 
 // mojangSessionserverEntry 镜像 sessionserver.mojang.com 返回的结构。
 type mojangSessionserverEntry struct {
-	ID         string             `json:"id"`
-	Name       string             `json:"name"`
-	Properties []mojangProperty   `json:"properties"`
+	ID         string           `json:"id"`
+	Name       string           `json:"name"`
+	Properties []mojangProperty `json:"properties"`
 }
 
 type mojangProperty struct {

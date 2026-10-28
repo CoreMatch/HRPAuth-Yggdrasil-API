@@ -5,6 +5,7 @@ This SDK package provides the Yggdrasil-related management interfaces for the HR
 ## Features
 
 - **Mojang Binding**: Manage Mojang account binding for username-based authentication.
+- **Game Profile**: Create one game profile with a random UUID, a custom UUID, or a UUID looked up from a premium Minecraft username.
 - **Texture Management**: Direct upload and management of player skins and capes.
 
 ## Integration

@@ -23,6 +23,7 @@ type ConfigMigration struct {
 //   - "1": initial decoupled Yggdrasil-API service config
 //   - "2": remove static internal_key and add relay_path_prefix
 //   - "3": add profile_cards priority settings
+//   - "4": add the Game Profile card priority
 func configMigrations() []ConfigMigration {
 	return []ConfigMigration{
 		{
@@ -59,6 +60,24 @@ func configMigrations() []ConfigMigration {
 					}
 				}
 				cfg["version"] = "3"
+				return nil
+			},
+		},
+		{
+			FromVersion: "3",
+			ToVersion:   "4",
+			Migrate: func(cfg map[string]interface{}, tokenGen func() string) error {
+				if ms, ok := cfg["microservice"].(map[string]interface{}); ok {
+					priorities, ok := ms["profile_cards"].(map[string]interface{})
+					if !ok {
+						priorities = make(map[string]interface{})
+						ms["profile_cards"] = priorities
+					}
+					if priorities["Game Profile"] == nil {
+						priorities["Game Profile"] = 150
+					}
+				}
+				cfg["version"] = "4"
 				return nil
 			},
 		},

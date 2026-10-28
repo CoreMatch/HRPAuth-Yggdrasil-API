@@ -3,6 +3,7 @@ import { Box, Card, CardContent, Grid, Button, Typography } from "@mui/material"
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
 import { getRealBackendUrl, buildServiceUrl } from '../utils/proxy';
+import ProfileCreationContent from '../components/ProfileCreationContent';
 
 function CodeBlock({ children }: { children: string }) {
   return (
@@ -50,6 +51,11 @@ export default function YggdrasilApi() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Typography variant="h6">{t('yggdrasil.intro')}</Typography>
+
+      <Box>
+        <Typography variant="h6" gutterBottom>{t('profileCreation.title')}</Typography>
+        <ProfileCreationContent />
+      </Box>
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 6 }}>

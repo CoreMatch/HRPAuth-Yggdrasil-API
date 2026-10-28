@@ -128,7 +128,7 @@ const DefaultRelayPathPrefix = "/yggdrasil-api"
 
 var ConfigFileDir = "./"
 
-const ConfigVersion = "4" // Game Profile card priority support
+const ConfigVersion = "3" // Profile cards priority support
 
 func init() {
 	// Try to get the directory of the executable

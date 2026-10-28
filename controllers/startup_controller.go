@@ -81,7 +81,6 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"relay_url":         "http://localhost:2770",
 			"relay_path_prefix": config.DefaultRelayPathPrefix,
 			"profile_cards": map[string]interface{}{
-				"Game Profile":     150,
 				"Minecraft Assets": 200,
 				"Mojang Binding":   100,
 			},

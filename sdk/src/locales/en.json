@@ -58,6 +58,7 @@
     "noSkinData": "No skin data available"
   },
   "profileCreation": {
+    "title": "Create Game Profile",
     "description": "Create the profile used for Yggdrasil login. Its UUID is independent from Mojang account binding. Each account can create one profile. Premium mode only looks up a public UUID and does not verify account ownership; creation is rejected if the UUID is already claimed.",
     "random": "Generate a random UUID",
     "custom": "Use a custom UUID",

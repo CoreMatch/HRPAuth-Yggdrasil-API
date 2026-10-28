@@ -58,6 +58,7 @@
     "noSkinData": "暂无皮肤数据"
   },
   "profileCreation": {
+    "title": "创建游戏 Profile",
     "description": "创建后将用于 Yggdrasil 登录。此 UUID 独立于正版账号绑定信息；每个账号只能创建一个 profile。正版模式仅查询公开 UUID，不验证账号所有权；UUID 已被占用时会拒绝创建。",
     "random": "随机生成 UUID",
     "custom": "使用自定义 UUID",

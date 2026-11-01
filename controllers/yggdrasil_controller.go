@@ -1,6 +1,7 @@
 package controllers
 
 import (
+        "errors"
 	"io"
 	"log"
 	"net/http"
@@ -607,6 +608,26 @@ func (yc *YggdrasilController) DownloadPreview(c *gin.Context) {
 	log.Printf("[YGG-BIZ] request_id=%s action=download_preview file=%s type=%s size=%d result=success status=%d", c.GetString("request_id"), fileName, contentType, len(data), http.StatusOK)
 	c.Header("Content-Type", contentType)
 	c.Data(http.StatusOK, contentType, data)
+}
+
+func (yc *YggdrasilController) DownloadSkinAvatar(c *gin.Context) {
+        profileID := utils.NormalizeMojangUUID(c.Param("uuid"))
+        if !utils.IsValidMojangUUID(profileID) {
+                respondError(c, http.StatusBadRequest, CodeInvalidRequest, "Invalid profile UUID.")
+                return
+        }
+        data, err := yc.textureService.GetProfileSkinAvatar(profileID)
+        if err != nil {
+                log.Printf("[YGG-BIZ] request_id=%s action=download_skin_avatar profile=%s result=failed err=%v", c.GetString("request_id"), profileID, err)
+                if errors.Is(err, services.ErrSkinAvatarNotFound) {
+                        respondError(c, http.StatusNotFound, CodeTargetNotFound, "Skin avatar not found.")
+                } else {
+                        respondError(c, http.StatusInternalServerError, CodeInternalError, "Failed to load skin avatar.")
+                }
+                return
+        }
+        c.Header("Cache-Control", "no-cache")
+        c.Data(http.StatusOK, "image/png", data)
 }
 
 func (yc *YggdrasilController) GetTextures(c *gin.Context) {

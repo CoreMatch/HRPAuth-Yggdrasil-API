@@ -12,6 +12,7 @@ import (
 	"github.com/lnb/HRPAuth-Yggdrasil-API/controllers"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/database"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/redis"
+        "github.com/lnb/HRPAuth-Yggdrasil-API/services"
 )
 
 //go:embed sdk/*
@@ -122,6 +123,16 @@ func main() {
 	mbeTimeoutCtrl.Start(30 * time.Second)
 	mbeTimeoutCtrl.LogStarted()
 
+        go func() {
+                textureService := services.NewTextureService()
+                textureService.CleanupOrphanedTextures()
+                ticker := time.NewTicker(time.Hour)
+                defer ticker.Stop()
+                for range ticker.C {
+                        textureService.CleanupOrphanedTextures()
+                }
+        }()
+
 	r := gin.Default()
 
 	r.Use(controllers.RequestIDMiddleware())
@@ -175,6 +186,7 @@ func main() {
 
 	r.GET("/textures/:hash", yggdrasilCtrl.DownloadTexture)
 	r.GET("/previews/:fileName", yggdrasilCtrl.DownloadPreview)
+        r.GET("/texture/avatar/:uuid", yggdrasilCtrl.DownloadSkinAvatar)
 	r.POST("/texture/get", yggdrasilCtrl.GetTextures)
 	r.POST("/texture/upload/:uuid", yggdrasilCtrl.UploadTexture)
 	r.DELETE("/texture/delete/:uuid/:type", yggdrasilCtrl.DeleteTexture)

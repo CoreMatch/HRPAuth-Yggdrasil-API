@@ -126,6 +126,13 @@ type FeatureFlagsConfig struct {
 const ConfigFileName = "config.yaml"
 const DefaultRelayPathPrefix = "/yggdrasil-api"
 
+// DefaultMaxTextureFileSize is the fallback limit for texture uploads when
+// yggdrasil.security.max_texture_file_size is not set. The value matches the
+// default introduced by the pre-split HRPAuth core config schema v5
+// (HRPAuth config/migrations.go migrateV4ToV5: 512000 bytes). An explicit
+// value in config.yaml always overrides it; 0 disables the limit.
+const DefaultMaxTextureFileSize int64 = 512000
+
 var ConfigFileDir = "./"
 
 const ConfigVersion = "3" // Profile cards priority support
@@ -305,12 +312,18 @@ func parseServerConfig(config map[string]interface{}) ServerConfig {
 
 func parseYggdrasilSecurityConfig(yggdrasilConfig map[string]interface{}) YggdrasilSecurityConfig {
 	security, _ := yggdrasilConfig["security"].(map[string]interface{})
+
+	maxTextureFileSize := int64(getInt(security, "max_texture_file_size"))
+	if _, ok := security["max_texture_file_size"]; !ok {
+		maxTextureFileSize = DefaultMaxTextureFileSize
+	}
+
 	return YggdrasilSecurityConfig{
 		TokenExpiryDays:      getInt(security, "token_expiry_days"),
 		SessionExpirySeconds: getInt(security, "session_expiry_seconds"),
 		MaxTextureWidth:      getInt(security, "max_texture_width"),
 		MaxTextureHeight:     getInt(security, "max_texture_height"),
-		MaxTextureFileSize:   int64(getInt(security, "max_texture_file_size")),
+		MaxTextureFileSize:   maxTextureFileSize,
 		MaxTokensPerUser:     getInt(security, "max_tokens_per_user"),
 	}
 }

@@ -83,3 +83,32 @@ func TestParseYggdrasilConfigReadsSecurityAndFeatureFlags(t *testing.T) {
 		t.Fatalf("expected feature flags to be parsed, got %+v", parsed.FeatureFlags)
 	}
 }
+
+func TestParseYggdrasilSecurityDefaultsMaxTextureFileSize(t *testing.T) {
+	parsed := parseYggdrasilConfig(map[string]interface{}{
+		"yggdrasil": map[string]interface{}{
+			"security": map[string]interface{}{
+				"token_expiry_days": 15,
+			},
+		},
+	})
+
+	if parsed.Security.MaxTextureFileSize != DefaultMaxTextureFileSize {
+		t.Fatalf("expected default max_texture_file_size %d, got %d",
+			DefaultMaxTextureFileSize, parsed.Security.MaxTextureFileSize)
+	}
+
+	// An explicit value (including 0, which disables the limit) overrides the default.
+	parsedZero := parseYggdrasilConfig(map[string]interface{}{
+		"yggdrasil": map[string]interface{}{
+			"security": map[string]interface{}{
+				"max_texture_file_size": 0,
+			},
+		},
+	})
+
+	if parsedZero.Security.MaxTextureFileSize != 0 {
+		t.Fatalf("expected explicit zero max_texture_file_size to be kept, got %d",
+			parsedZero.Security.MaxTextureFileSize)
+	}
+}

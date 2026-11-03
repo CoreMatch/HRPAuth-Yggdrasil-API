@@ -128,6 +128,7 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 				"session_expiry_seconds": 28800,
 				"max_texture_width":      1024,
 				"max_texture_height":     1024,
+				"max_texture_file_size":  config.DefaultMaxTextureFileSize,
 				"max_tokens_per_user":    10,
 			},
 			"feature_flags": map[string]interface{}{

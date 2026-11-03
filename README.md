@@ -59,7 +59,7 @@ On first start, `config.yaml` is generated with defaults. The fields you normall
 | `microservice.relay_url` | The URL of this service as reachable from the HRPAuth core |
 | `callback.url` | Public base URL used in texture URLs; if left empty it is derived from the core's site metadata |
 
-This service has no dedicated configuration reference yet; for the full field list see [`config.yaml`](config.yaml) / [`config/config.go`](config/config.go) and the HA-Contract documentation linked below.
+For the full field list, see [`config.yaml`](config.yaml) and [`config/config.go`](config/config.go).
 
 ## authlib-injector compatibility
 

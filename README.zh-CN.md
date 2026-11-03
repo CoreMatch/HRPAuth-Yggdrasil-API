@@ -59,7 +59,7 @@ docker run -d --name yggdrasil-api \
 | `microservice.relay_url` | HRPAuth 核心可访问到本服务的地址 |
 | `callback.url` | 纹理 URL 使用的公网基址；留空时自动取自核心的站点元数据 |
 
-本服务暂无专属配置文档；完整字段以 [`config.yaml`](config.yaml)、[`config/config.go`](config/config.go) 及下方 HA-Contract 文档为准。
+完整字段以 [`config.yaml`](config.yaml) 与 [`config/config.go`](config/config.go) 为准。
 
 ## authlib-injector 兼容性
 

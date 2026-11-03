@@ -14,6 +14,4 @@ This package is designed to be aggregated by `HA-WebUI-SDKHandler`. It relies on
 
 ## Routes
 
-- `/mojang-bind`: Mojang account binding management.
-- `/texture-management`: Personal skin and cape management.
-- `/yggdrasil-api`: Yggdrasil API information and usage guidance.
+For the currently declared routes and profile cards, see [`manifest.json`](manifest.json). The mounting contract — how routes, dashboard entries and profile cards are aggregated into the host WebUI at build time — is defined in HA-Contract [`docs/dev/HRPAuth/sdk-package.md`](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/sdk-package.md).

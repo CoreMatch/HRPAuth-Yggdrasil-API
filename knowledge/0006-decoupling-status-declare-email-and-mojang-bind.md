@@ -10,6 +10,14 @@
 > recorded below remains: `/admin/claim-user` and `/admin/force-bind` were
 > implemented, but neither consumes `accounts.mbe`; the §3.4-style mbe bind
 > branch is still unimplemented (class B, mechanically recoverable).
+>
+> **Update 2026-11-05 (2)**: the mojang-bind completion gap is **closed**.
+> `POST /internal/proxy-register` now implements the §3.4.2.a branch (commit
+> `cfb29bc`, merged `66c8c41`; contract HA-Contract `ff62f2b`): a collision
+> against an account with `mbe=1` binds the incoming `mojang_uuid`, resets
+> `mbe=0`, cancels the 15-minute revert and preserves cbh/password; `mbe=0`
+> collisions return 409 `username_already_bound`. `accounts.mbe` is consumed
+> again; the class-B item is done.
 
 ## Context
 

@@ -80,6 +80,17 @@ implemented in the old core — "not implemented" there means *currently*.
   (`register.manage`, `user.claim.as-service`, `profile.change-name(.as-service)`,
   `user.declare-email`, `user.mojang-bind-*(.as-service)`) — cleanup belongs to
   whichever option the author picks for D1/D4.
+
+  > **Update 2026-11-05**: resolved per the author's decisions —
+  > `user.claim.as-service` is consumed by `POST /admin/claim-user` (no longer
+  > orphaned) and `user.force-bind.as-service` joined it for
+  > `POST /admin/force-bind`; `user.declare-email` was removed with the
+  > declare-email deprecation; `register.manage` and
+  > `profile.change-name(.as-service)` were removed on 2026-11-05 (HRPAuth
+  > `6919a12`) after confirming no endpoint consumed them. Still registered
+  > but unconsumed at that date: `user.mojang-bind-enable(.as-service)` /
+  > `user.mojang-bind-disable.as-service`, `totp.status(.as-service)`,
+  > `email-2fa.status(.as-service)` — left for a future author decision.
 - The lazy-pull replacement (class A #15) means game accounts of deleted core
   users persist until next access; if that is unacceptable, an explicit
   deletion signal would be a new design item.

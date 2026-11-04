@@ -89,3 +89,14 @@ confirmed deprecated with no successor.
   verified after each step.
 - Contract drift check: `Business API drift check passed.` after the
   implementation sync.
+- Follow-ups on 2026-11-05: mbe bind branch `cfb29bc` (merged `66c8c41`,
+  contract HA-Contract `ff62f2b`; sqlite `-race` tests in
+  `services/auth_service_mbe_test.go`; live run: enable mbe → colliding
+  proxy-register `200` bound + `mbe=0` + `cbh` preserved, `mbe=0` collision
+  `409 username_already_bound`, wrong internal key `401`, invalid uuid
+  `400`). Force-bind auth switch `d2a9834` (merged `1467f1b`; core scope
+  HRPAuth `4d70784`, contract `895ea1b`, Spigot `0d79e8b`; live run:
+  transfer `200` without any manage_token, wrong password `403
+  invalid_credentials`, missing source `404`, already-bound target `409
+  mojang_uuid_already_bound`, missing bearer `401`, service token lacking
+  the scope `403 oauth_insufficient_scope`).

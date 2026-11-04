@@ -18,7 +18,6 @@ const (
 	CodeInvalidRequest                 = "invalid_request"
 	CodeInvalidEmail                   = "invalid_email"
 	CodeInvalidCredentials             = "invalid_credentials"
-	CodeInvalidManageToken             = "invalid_manage_token"
 	CodeInvalidMojangUUID              = "invalid_mojang_uuid"
 	CodeMojangUUIDRequired             = "mojang_uuid_required_for_existing_user"
 	CodeCaptchaDisabled                = "captcha_disabled"

@@ -25,14 +25,18 @@ confirmed deprecated with no successor.
   `cbh=1`. `mojang_uuid` is kept. This is the restored pre-split chain behind
   the plugin's `/ha reg` command — and per the author it is also the sole
   player-facing email path (declare-email stays dead).
-- **`POST /admin/force-bind`**: service token + `manage_token` (new
-  `manage.token` config, schema version 4). Target credentials verified via
-  core `/internal/verify-credentials`; uuid transfer + source deletion happen
-  in **one local transaction** (source deleted before the uuid rewrite so the
-  unique `mojang_uuid` index never sees duplicates). The core call is
-  read-only, so there is no cross-database write in this flow. Unknown email
-  and wrong password merge into 403 `invalid_credentials`; a target already
-  bound to another uuid yields 409 `mojang_uuid_already_bound`.
+- **`POST /admin/force-bind`**: OAuth2 service token with scope
+  `user.force-bind.as-service` — the same tier as claim-user. (Originally
+  restored with a `manage_token` body field + `manage.token` config item,
+  schema version 4; the author retired `manage.token` on 2026-11-05, so the
+  config chain was reverted to version 3 and the body field removed.) Target
+  credentials verified via core `/internal/verify-credentials`; uuid transfer
+  + source deletion happen in **one local transaction** (source deleted before
+  the uuid rewrite so the unique `mojang_uuid` index never sees duplicates).
+  The core call is read-only, so there is no cross-database write in this
+  flow. Unknown email and wrong password merge into 403
+  `invalid_credentials`; a target already bound to another uuid yields 409
+  `mojang_uuid_already_bound`.
 - **Cross-database failure policy (claim only)**: core provisioning precedes
   the local link. If the local link fails after the core user is created, the
   player retries; the core endpoint is idempotent by (username, email) and
@@ -57,8 +61,15 @@ confirmed deprecated with no successor.
   carry the `/yggdrasil-api` relay prefix; relay registration gained `/admin`).
 - declare-email is closed: core scope `user.declare-email` removed, contract
   entry marked confirmed-deprecated, WinnerProxy dead methods deleted.
-- The mbe bind branch (ADR-0006 class-B item) is still unimplemented; mbe
-  remains writable but unconsumed.
+- The mbe bind branch (ADR-0006 class-B item) was implemented on 2026-11-05
+  (commit `cfb29bc`, merged `66c8c41`): a colliding
+  `POST /internal/proxy-register` against an account with `mbe=1` binds the
+  mojang_uuid, resets `mbe=0`, cancels the 15-minute revert and preserves
+  cbh/password; `mbe=0` collisions return 409 `username_already_bound`.
+- `manage.token` is retired everywhere in this service: force-bind
+  authenticates with the `user.force-bind.as-service` scope, the config
+  version chain ends at "3" again, and existing version-4 config files keep
+  loading (the unknown `manage` section is ignored).
 
 ## Evidence
 

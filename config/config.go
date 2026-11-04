@@ -20,6 +20,7 @@ type Config struct {
 	Security     SecurityConfig
 	Microservice MicroserviceConfig
 	Callback     CallbackConfig
+	Manage       ManageConfig
 
 	// Runtime populated from Core API
 	Runtime struct {
@@ -31,6 +32,13 @@ type Config struct {
 
 type CallbackConfig struct {
 	URL string
+}
+
+// ManageConfig holds the operator-level Manage Token (M-T). It is only used
+// to validate force-bind requests forwarded by trusted tooling; leave it
+// empty to reject force-bind.
+type ManageConfig struct {
+	Token string
 }
 
 type MicroserviceConfig struct {
@@ -135,7 +143,7 @@ const DefaultMaxTextureFileSize int64 = 512000
 
 var ConfigFileDir = "./"
 
-const ConfigVersion = "3" // Profile cards priority support
+const ConfigVersion = "4" // Manage token support (force-bind)
 
 func init() {
 	// Try to get the directory of the executable
@@ -198,6 +206,7 @@ func Load() {
 		Security:     parseSecurityConfig(yamlConfig),
 		Microservice: parseMicroserviceConfig(yamlConfig),
 		Callback:     parseCallbackConfig(yamlConfig),
+		Manage:       parseManageConfig(yamlConfig),
 	}
 
 	log.Println("Configuration loaded successfully")
@@ -207,6 +216,13 @@ func parseCallbackConfig(config map[string]interface{}) CallbackConfig {
 	callback, _ := config["callback"].(map[string]interface{})
 	return CallbackConfig{
 		URL: getString(callback, "url"),
+	}
+}
+
+func parseManageConfig(config map[string]interface{}) ManageConfig {
+	manage, _ := config["manage"].(map[string]interface{})
+	return ManageConfig{
+		Token: getString(manage, "token"),
 	}
 }
 

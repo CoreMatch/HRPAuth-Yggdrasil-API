@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"log"
 	"net/http"
 
@@ -47,8 +48,16 @@ func (ic *InternalController) ProxyRegister(c *gin.Context) {
 
 	account, profile, err := ic.authService.ProxyRegister(req.Username, req.Password, req.MojangUUID)
 	if err != nil {
-		log.Printf("[YGG-BIZ] request_id=%s action=proxy_register username=%s result=failed err=%v status=%d", c.GetString("request_id"), req.Username, err, http.StatusInternalServerError)
-		respondError(c, http.StatusInternalServerError, CodeInternalError, err.Error())
+		switch {
+		case errors.Is(err, services.ErrUsernameAlreadyBound):
+			log.Printf("[YGG-BIZ] request_id=%s action=proxy_register username=%s result=rejected status=%d", c.GetString("request_id"), req.Username, http.StatusConflict)
+			respondError(c, http.StatusConflict, CodeUsernameAlreadyBound, "Username already bound")
+		case errors.Is(err, services.ErrInvalidMojangUUID):
+			respondError(c, http.StatusBadRequest, CodeInvalidMojangUUID, "invalid mojang_uuid format")
+		default:
+			log.Printf("[YGG-BIZ] request_id=%s action=proxy_register username=%s result=failed err=%v status=%d", c.GetString("request_id"), req.Username, err, http.StatusInternalServerError)
+			respondError(c, http.StatusInternalServerError, CodeInternalError, err.Error())
+		}
 		return
 	}
 

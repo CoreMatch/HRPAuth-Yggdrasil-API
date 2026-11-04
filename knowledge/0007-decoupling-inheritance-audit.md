@@ -3,6 +3,14 @@
 - **Status**: accepted
 - **Date**: 2026-11-05
 
+> **Update 2026-11-05 (same day, post-decision)**: the three class-C items are
+> resolved — `/admin/claim-user` and `/admin/force-bind` are implemented in
+> this service (ADR-0008), and `change-profile-name` is deliberately not
+> restored as an endpoint; the lazy username pull now renames the profile
+> (uniqueness conflict → keep old name). Class-B declare-email is **confirmed
+> deprecated** (author decision; no successor, the claim flow covers the
+> real-email need). Class-B mbe bind branch remains unimplemented.
+
 ## Context
 
 The HRPAuth core stripped its Minecraft stack in the window

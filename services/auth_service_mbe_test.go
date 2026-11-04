@@ -9,6 +9,15 @@ import (
 	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
 )
 
+// resetMBEPendingForTest clears the package-global pending-revert map so
+// tests do not leak timeout entries into each other (sqlite autoincrement
+// restarts at 1 per test database).
+func resetMBEPendingForTest() {
+	mbePendingMu.Lock()
+	mbePending = make(map[int]time.Time)
+	mbePendingMu.Unlock()
+}
+
 // seedHAAccount seeds a claimed HA-side game account (cbh=1) with local
 // credentials, mirroring a WebUI-registered player who may later open the
 // Mojang bind window.

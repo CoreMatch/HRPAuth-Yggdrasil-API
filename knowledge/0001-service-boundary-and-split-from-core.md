@@ -1,0 +1,76 @@
+# ADR-0001: Service Boundary: Split From the HRPAuth Core
+
+- **Status**: accepted
+- **Date**: 2026-11-04
+
+## Context
+
+Until 2026-10-06 the HRPAuth core monolith carried both general authentication
+(users, OAuth2, WebAuthn) and the whole Minecraft/Yggdrasil stack (game profiles,
+Yggdrasil tokens, join/hasJoined sessions, profile keys, textures). On 2026-10-06
+the Minecraft side was carved out into this repository; the core commit
+`9ab4e64` ("refactor: strip legacy Yggdrasil stack and unused cleanup services",
+HRPAuth repository, 2026-10-06 21:15 +0800) deleted the Profile, ProfileProperty,
+Token, Session and ProfileKey models, the texture/profile-key services and the
+Yggdrasil routes from the core, and this repository's initial codebase landed the
+same evening (commit `94dd859`, 2026-10-06 21:37 +0800).
+
+## Decision
+
+This service is the **sole owner of the Minecraft/game domain** in the HRPAuth
+ecosystem, and the core stays the sole owner of general identity:
+
+- **This service**: Yggdrasil protocol surface for game clients
+  (authlib-injector-compatible), game accounts/profiles, Yggdrasil tokens and
+  sessions, profile keys, texture storage and delivery, Mojang binding, and the
+  WebUI SDK package for the Yggdrasil-related pages.
+- **HRPAuth core** (sibling repository `CoreMatch/HRPAuth`): users, OAuth2 server,
+  WebAuthn credentials, deleted accounts. This service verifies user credentials by
+  calling the core's `POST /internal/verify-credentials` and verifies core-issued
+  bearer tokens via `POST /internal/verify-token` (`clients/core_client.go:68-97`).
+- **HA-Contract** (sibling repository `CoreMatch/HA-Contract`): all outward behavior
+  definitions. This repository keeps no API documentation of its own; the README
+  points to HA-Contract for the protocol surface and the business OpenAPI
+  (`README.md:68-77`).
+- **WebUI** (`CoreMatch/HRPAuth-WebUI`): consumes this service only through the
+  core's relay under the `/yggdrasil-api` path prefix, plus the SDK package this
+  service uploads (see ADR-0003).
+
+## Consequences
+
+- The service is useless for regular user authentication without a reachable core:
+  with `core_api` unconfigured only internally registered proxy accounts can log in
+  (see ADR-0003). The README states this explicitly as a deployment prerequisite
+  (`README.md:12`).
+- The 1:1 link between a core user and the game domain is the `accounts.core_user_id`
+  column in this service's database (see ADR-0002); the core holds no game tables
+  anymore. Verified against the core's post-split baseline migration, which contains
+  only `users`, `oauth2_*`, `deleted_accounts`, `webauthn_credentials` (HRPAuth
+  `database/migrations/000001_baseline.up.sql:1-112`).
+- Outward behavior changes must go through HA-Contract first; this repository's
+  `knowledge/` must never redefine request/response shapes.
+- Cost: one more service to deploy and supervise, plus a startup dependency on core
+  metadata for correct CORS/links (degraded startup is tolerated, see ADR-0003).
+
+## Evidence
+
+All paths relative to this repository at commit `68feb97` unless noted.
+
+- Split date and initial codebase: commits `3c96efa` (Initial commit, 2026-10-06)
+  and `94dd859` (feat: add initial HRPAuth Yggdrasil API codebase, 2026-10-06).
+- Core-side removal: HRPAuth repository commit `9ab4e64` — message lists deleted
+  models "Profile, ProfileProperty, Token, Session, ProfileKey" and deleted
+  texture/profile-key services; stat shows
+  `controllers/yggdrasil_controller.go` (-735), `services/texture_service.go`
+  (-856), `services/profile_key_service.go` (-282).
+- Core retains only general-identity tables: HRPAuth
+  `database/migrations/000001_baseline.up.sql` (`CREATE TABLE` lines 1, 26, 44, 64,
+  86, 106, 112) and `models/models.go:7-126`.
+- Credential verification delegation: `clients/core_client.go:68-97`
+  (`/internal/verify-credentials`, `/internal/verify-token`).
+- Owns the Yggdrasil protocol surface: route registration in `main.go:147-200`
+  (authserver, sessionserver, textures, minecraftservices, player, register).
+- Contract pointers in README: `README.md:68-77`.
+- Ecosystem positioning of the relay/presence mechanism: HA-Contract
+  `docs/dev/HRPAuth/microservices.md` ("Design Positioning" section) — checked in
+  this pass.

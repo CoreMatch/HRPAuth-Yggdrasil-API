@@ -19,6 +19,7 @@ import (
 // property of the production DDL.
 func setupAdminTestDB(t *testing.T) {
 	t.Helper()
+	resetMBEPendingForTest()
 	if config.AppConfig == nil {
 		config.AppConfig = &config.Config{}
 	}

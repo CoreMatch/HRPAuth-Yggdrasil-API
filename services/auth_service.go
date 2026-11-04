@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -20,6 +21,18 @@ import (
 type AuthService struct {
 	coreClient *clients.CoreClient
 }
+
+// Sentinel errors returned by ProxyRegister so the internal controller can
+// map them onto the stable HTTP semantics of /internal/proxy-register
+// (HA-Contract hrpauth-yggdrasil-business.yaml).
+var (
+	// ErrUsernameAlreadyBound: the requested username collides with an
+	// account that is not in an open mbe bind window (mbe=0, or already
+	// bound to a different mojang_uuid). HA accounts have priority.
+	ErrUsernameAlreadyBound = errors.New("username already bound")
+	// ErrInvalidMojangUUID: the supplied mojang_uuid is missing or malformed.
+	ErrInvalidMojangUUID = errors.New("invalid mojang_uuid format")
+)
 
 func NewAuthService() *AuthService {
 	return &AuthService{
@@ -164,7 +177,7 @@ func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID stri
 func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*models.Account, *models.Profile, error) {
 	mojangUUID = utils.NormalizeMojangUUID(mojangUUID)
 	if !utils.IsValidMojangUUID(mojangUUID) {
-		return nil, nil, fmt.Errorf("invalid mojang_uuid format")
+		return nil, nil, ErrInvalidMojangUUID
 	}
 
 	var account models.Account
@@ -179,7 +192,30 @@ func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*mo
 	// Check if username taken
 	var existingProfile models.Profile
 	if err := database.DB.Where("name = ?", username).First(&existingProfile).Error; err == nil {
-		return nil, nil, fmt.Errorf("profile name '%s' already taken", username)
+		// Username collision: either complete an open mbe bind window or
+		// reject (HA accounts have priority). Restored pre-split semantics
+		// (HA-ROADMAP §3.4.2.a): mbe=1 + unbound account binds the incoming
+		// mojang_uuid; everything else is username_already_bound.
+		var existingAccount models.Account
+		if err := database.DB.First(&existingAccount, existingProfile.AccountID).Error; err == nil &&
+			existingAccount.MBE && (existingAccount.MojangUUID == nil || *existingAccount.MojangUUID == "") {
+			if err := database.DB.Model(&existingAccount).Updates(map[string]interface{}{
+				"mojang_uuid":  mojangUUID,
+				"last_sign_at": time.Now(),
+				"mbe":          false,
+			}).Error; err != nil {
+				return nil, nil, err
+			}
+			CancelMBETimeout(existingAccount.ID)
+			log.Printf("[YGG-SVC] action=proxy_register_mbe_bind account=%d mojang_uuid=%s result=success", existingAccount.ID, mojangUUID)
+			existingAccount.MojangUUID = &mojangUUID
+			existingAccount.MBE = false
+			// cbh, password, core_user_id and the profile are preserved; the
+			// supplied password is discarded (the account keeps its own
+			// credentials).
+			return &existingAccount, &existingProfile, nil
+		}
+		return nil, nil, ErrUsernameAlreadyBound
 	}
 
 	hash, err := utils.HashPassword(password)

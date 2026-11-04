@@ -2,8 +2,10 @@ package config
 
 import (
 	"log"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/goccy/go-yaml"
@@ -70,6 +72,21 @@ type DatabaseConfig struct {
 	Password    string
 	Charset     string
 	TablePrefix string
+	Port        int
+}
+
+// Addr 返回 MySQL DSN 的拨号地址。设置了 Port 时优先使用独立端口字段
+// （并剥掉 Host 中可能内联的旧端口）；Port 为 0 时原样返回 Host，
+// 兼容既有 "ip:port" 内联写法。
+func (c DatabaseConfig) Addr() string {
+	if c.Port <= 0 {
+		return c.Host
+	}
+	host := c.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	return net.JoinHostPort(host, strconv.Itoa(c.Port))
 }
 
 type RedisConfig struct {
@@ -135,7 +152,7 @@ const DefaultMaxTextureFileSize int64 = 512000
 
 var ConfigFileDir = "./"
 
-const ConfigVersion = "3" // profile_cards support; the v4 manage.token step was reverted (force-bind moved to service-token scopes)
+const ConfigVersion = "4" // database.port support; the earlier v4 manage.token step was reverted (force-bind moved to service-token scopes)
 
 func init() {
 	// Try to get the directory of the executable
@@ -236,6 +253,7 @@ func parseDatabaseConfig(config map[string]interface{}) DatabaseConfig {
 		Password:    getString(db, "password"),
 		Charset:     getString(db, "charset"),
 		TablePrefix: getString(db, "table_prefix"),
+		Port:        getInt(db, "port"),
 	}
 }
 

@@ -105,3 +105,42 @@ func TestBackupConfigFileCreatesCopyOnce(t *testing.T) {
 		t.Fatalf("expected existing backup to stay untouched, got %q", string(data))
 	}
 }
+
+func TestMigrateV3ToV4AddsDatabasePort(t *testing.T) {
+	cfg := map[string]interface{}{
+		"version":  "3",
+		"database": map[string]interface{}{"host": "db.example:3307"},
+	}
+	out, changed, err := MigrateConfig(cfg, tokenGen)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected v3->v4 migration to run")
+	}
+	if out["version"] != "4" {
+		t.Fatalf("expected version 4, got %v", out["version"])
+	}
+	db := out["database"].(map[string]interface{})
+	if db["port"] != 0 {
+		t.Errorf("expected default port 0, got %v", db["port"])
+	}
+	if db["host"] != "db.example:3307" {
+		t.Errorf("legacy inline host must stay untouched, got %v", db["host"])
+	}
+}
+
+func TestMigrateV3ToV4KeepsExistingPort(t *testing.T) {
+	cfg := map[string]interface{}{
+		"version":  "3",
+		"database": map[string]interface{}{"host": "db.example", "port": 3307},
+	}
+	out, _, err := MigrateConfig(cfg, tokenGen)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	db := out["database"].(map[string]interface{})
+	if db["port"] != 3307 {
+		t.Errorf("existing port must be preserved, got %v", db["port"])
+	}
+}

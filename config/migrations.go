@@ -23,11 +23,12 @@ type ConfigMigration struct {
 //   - "1": initial decoupled Yggdrasil-API service config
 //   - "2": remove static internal_key and add relay_path_prefix
 //   - "3": add profile_cards priority settings
-//   - "4": (reverted) added manage.token for force-bind; the field was
-//     retired again on 2026-11-05 when force-bind moved to OAuth2
-//     service-token scopes, so the version chain ends at "3". Config files
-//     already written at version "4" keep working: the loader ignores the
-//     unknown manage section and newer versions are never downgraded.
+//   - "4": add optional database.port (0 = keep legacy inline host port).
+//     Note: an earlier, since-reverted "4" added manage.token for force-bind
+//     (retired 2026-11-05 when force-bind moved to OAuth2 service-token
+//     scopes). Config files written by that brief v4 remain accepted: the
+//     loader ignores the unknown manage section, and this migration only
+//     adds database.port when missing.
 func configMigrations() []ConfigMigration {
 	return []ConfigMigration{
 		{
@@ -64,6 +65,24 @@ func configMigrations() []ConfigMigration {
 					}
 				}
 				cfg["version"] = "3"
+				return nil
+			},
+		},
+		{
+			FromVersion: "3",
+			ToVersion:   "4",
+			Migrate: func(cfg map[string]interface{}, tokenGen func() string) error {
+				// Add the optional database port field. 0 keeps the legacy
+				// behavior where any port is inlined into the host value.
+				db, _ := cfg["database"].(map[string]interface{})
+				if db == nil {
+					db = map[string]interface{}{}
+				}
+				if _, exists := db["port"]; !exists {
+					db["port"] = 0
+				}
+				cfg["database"] = db
+				cfg["version"] = "4"
 				return nil
 			},
 		},

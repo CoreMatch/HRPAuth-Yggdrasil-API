@@ -67,9 +67,10 @@ confirmed deprecated with no successor.
   mojang_uuid, resets `mbe=0`, cancels the 15-minute revert and preserves
   cbh/password; `mbe=0` collisions return 409 `username_already_bound`.
 - `manage.token` is retired everywhere in this service: force-bind
-  authenticates with the `user.force-bind.as-service` scope, the config
-  version chain ends at "3" again, and existing version-4 config files keep
-  loading (the unknown `manage` section is ignored).
+  authenticates with the `user.force-bind.as-service` scope. The config
+  version chain reverted to "3" when `manage.token` was retired and was later
+  raised to "4" by the `database.port` scheme (v4 no longer carries
+  `manage.token`); a leftover `manage` section in a config file is ignored.
 
 ## Evidence
 

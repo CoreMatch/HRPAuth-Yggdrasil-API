@@ -27,11 +27,12 @@ ecosystem, and the core stays the sole owner of general identity:
 - **HRPAuth core** (sibling repository `CoreMatch/HRPAuth`): users, OAuth2 server,
   WebAuthn credentials, deleted accounts. This service verifies user credentials by
   calling the core's `POST /internal/verify-credentials` and verifies core-issued
-  bearer tokens via `POST /internal/verify-token` (`clients/core_client.go:68-97`).
+  bearer tokens via `POST /internal/verify-token`
+  (`clients/core_client.go:L68-L97 @ 68feb97`).
 - **HA-Contract** (sibling repository `CoreMatch/HA-Contract`): all outward behavior
   definitions. This repository keeps no API documentation of its own; the README
   points to HA-Contract for the protocol surface and the business OpenAPI
-  (`README.md:68-77`).
+  (`README.md:L68-L77 @ 68feb97`).
 - **WebUI** (`CoreMatch/HRPAuth-WebUI`): consumes this service only through the
   core's relay under the `/yggdrasil-api` path prefix, plus the SDK package this
   service uploads (see ADR-0003).
@@ -41,12 +42,12 @@ ecosystem, and the core stays the sole owner of general identity:
 - The service is useless for regular user authentication without a reachable core:
   with `core_api` unconfigured only internally registered proxy accounts can log in
   (see ADR-0003). The README states this explicitly as a deployment prerequisite
-  (`README.md:12`).
+  (`README.md:L12 @ 68feb97`).
 - The 1:1 link between a core user and the game domain is the `accounts.core_user_id`
   column in this service's database (see ADR-0002); the core holds no game tables
   anymore. Verified against the core's post-split baseline migration, which contains
-  only `users`, `oauth2_*`, `deleted_accounts`, `webauthn_credentials` (HRPAuth
-  `database/migrations/000001_baseline.up.sql:1-112`).
+  only `users`, `oauth2_*`, `deleted_accounts`, `webauthn_credentials`
+  [xref] (HRPAuth `database/migrations/000001_baseline.up.sql:1-112`).
 - Outward behavior changes must go through HA-Contract first; this repository's
   `knowledge/` must never redefine request/response shapes.
 - Cost: one more service to deploy and supervise, plus a startup dependency on core
@@ -64,13 +65,14 @@ All paths relative to this repository at commit `68feb97` unless noted.
   `controllers/yggdrasil_controller.go` (-735), `services/texture_service.go`
   (-856), `services/profile_key_service.go` (-282).
 - Core retains only general-identity tables: HRPAuth
-  `database/migrations/000001_baseline.up.sql` (`CREATE TABLE` lines 1, 26, 44, 64,
-  86, 106, 112) and `models/models.go:7-126`.
-- Credential verification delegation: `clients/core_client.go:68-97`
+  `database/migrations/000001_baseline.up.sql` (`CREATE TABLE` lines 1, 26,
+  44, 64, 86, 106, 112) and `models/models.go:7-126` [xref].
+- Credential verification delegation: `clients/core_client.go:L68-L97 @ 68feb97`
   (`/internal/verify-credentials`, `/internal/verify-token`).
-- Owns the Yggdrasil protocol surface: route registration in `main.go:147-200`
-  (authserver, sessionserver, textures, minecraftservices, player, register).
-- Contract pointers in README: `README.md:68-77`.
-- Ecosystem positioning of the relay/presence mechanism: HA-Contract
-  `docs/dev/HRPAuth/microservices.md` ("Design Positioning" section) — checked in
-  this pass.
+- Owns the Yggdrasil protocol surface: route registration in
+  `main.go:L147-L200 @ 68feb97` (authserver, sessionserver, textures,
+  minecraftservices, player, register).
+- Contract pointers in README: `README.md:L68-L77 @ 68feb97`.
+- Ecosystem positioning of the relay/presence mechanism: [xref] HA-Contract
+  `docs/dev/HRPAuth/microservices.md` ("Design Positioning" section) — checked
+  in this pass.

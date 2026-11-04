@@ -17,24 +17,26 @@ and what is residue.
 **Internal surface authentication.** `/internal/proxy-register` and
 `/internal/heartbeat` are guarded solely by an `X-Internal-Key` header compared
 against `config.AppConfig.Runtime.InternalKey`
-(`controllers/internal_controller.go:22-36`). The key is not configured by hand: it
-is fetched from the core's `POST /services/auth-key` during service registration
-(`controllers/startup_controller.go:609-634`). When the core is not configured, the
-runtime key stays empty and the guard's `InternalKey == ""` branch makes both
-endpoints reject every request with 401 — internal endpoints are therefore inert in
-standalone mode, by construction.
+(`controllers/internal_controller.go:L22-L36 @ 68feb97`). The key is not
+configured by hand: it is fetched from the core's `POST /services/auth-key`
+during service registration
+(`controllers/startup_controller.go:L609-L634 @ 68feb97`). When the core is not
+configured, the runtime key stays empty and the guard's `InternalKey == ""`
+branch makes both endpoints reject every request with 401 — internal endpoints
+are therefore inert in standalone mode, by construction.
 
 **Known leftovers and easily misread points:**
 
 1. **`GetUserByID` is a dead placeholder.** It returns `nil` unconditionally and its
-   comment admits it was never implemented (`services/auth_service.go:687-693`).
-   Callers must not rely on it.
+   comment admits it was never implemented
+   (`services/auth_service.go:L687-L693 @ 68feb97`). Callers must not rely on it.
 2. **`texture_list_skin` / `texture_list_cape` in the migration prefix list are
    ghosts.** The table-prefix rewriter still renames these tables
-   (`controllers/startup_controller.go:368-371`), but no migration creates them
-   since the texture-library feature was removed (commit `3dd8ec3`, 2026-10-13,
-   which dropped the tables; the removal migration was itself absorbed by the
-   2026-10-14 squash `fa788be`). Harmless, but misleading when reading the list.
+   (`controllers/startup_controller.go:L368-L371 @ 68feb97`), but no migration
+   creates them since the texture-library feature was removed (commit `3dd8ec3`,
+   2026-10-13, which dropped the tables; the removal migration was itself
+   absorbed by the 2026-10-14 squash `fa788be`). Harmless, but misleading when
+   reading the list.
 3. **The texture library / "texture discovery" (ex-skinlib) feature no longer
    exists here.** It was implemented on 2026-10-07 (`4e00aed`), reworked on
    2026-10-13 (`6eebf2b`, `3cea9c5`, `8d3a949`, `c2c9e28`), and fully removed the
@@ -46,12 +48,12 @@ standalone mode, by construction.
    `public_key.pem` pair and removed a hardcoded `sshpass`-based deployment command
    (production host credentials) from `build.sh`. Both are still retrievable from
    history. The current signing key pair is generated locally at first run and is
-   not in the tree (`controllers/startup_controller.go:147-176`).
+   not in the tree (`controllers/startup_controller.go:L147-L176 @ 68feb97`).
 5. **Migration history was squashed** (see ADR-0002): pre-squash migration numbers
    found in old logs or databases (e.g. versions > 1) do not correspond to files in
    the current tree; `EnsureMigrations` clamps such databases to the highest
-   embedded version (`controllers/startup_controller.go:454-464`, fix commit
-   `45000e9`).
+   embedded version (`controllers/startup_controller.go:L454-L464 @ 68feb97`,
+   fix commit `45000e9`).
 
 ## Consequences
 
@@ -70,16 +72,18 @@ standalone mode, by construction.
 
 All paths relative to this repository at commit `68feb97` unless noted.
 
-- Internal key guard: `controllers/internal_controller.go:22-36`; routes registered
-  in `main.go:149-150`.
-- Key fetch from core: `controllers/startup_controller.go:609-634`
+- Internal key guard: `controllers/internal_controller.go:L22-L36 @ 68feb97`;
+  routes registered in `main.go:L149-L150 @ 68feb97`.
+- Key fetch from core: `controllers/startup_controller.go:L609-L634 @ 68feb97`
   (`POST /services/auth-key`).
-- Dead placeholder: `services/auth_service.go:687-693`.
-- Ghost table names: `controllers/startup_controller.go:368-371`; table removal in
-  commit `3dd8ec3` ("Drop texture_list_skin and texture_list_cape database tables").
+- Dead placeholder: `services/auth_service.go:L687-L693 @ 68feb97`.
+- Ghost table names: `controllers/startup_controller.go:L368-L371 @ 68feb97`;
+  table removal in commit `3dd8ec3` ("Drop texture_list_skin and
+  texture_list_cape database tables").
 - Feature churn chronology: commits `4e00aed` (2026-10-07), `6eebf2b`, `3cea9c5`,
   `8d3a949`, `c2c9e28`, `3dd8ec3`, `c43a91c` (all 2026-10-13).
 - Secret removal: commit `3517456` — stat shows `private_key.pem` (-51),
   `public_key.pem` (-14), `build.sh` hunk removing the `sshpass ... scp` line;
   message: "Remove the hardcoded remote deployment command from build.sh".
-- Post-squash clamp: `controllers/startup_controller.go:454-464`; commit `45000e9`.
+- Post-squash clamp: `controllers/startup_controller.go:L454-L464 @ 68feb97`;
+  commit `45000e9`.

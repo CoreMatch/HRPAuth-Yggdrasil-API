@@ -30,19 +30,20 @@ decoupling losses.
 
 **Class A (replaced, form may differ)** — highlights where the replacement is
 not 1:1: standard texture write paths `PUT/DELETE /api/user/profile/...` were
-deliberately not migrated (business wrappers instead; HA-Contract
+deliberately not migrated (business wrappers instead; [xref] HA-Contract
 `yggdrasil-api.md:170-172`); `/texture/rewrite-callback` became read-time lazy
-rewriting (`services/texture_service.go:519-566`); `/generate-key` became
-first-run automatic key generation; runtime SDK endpoints became the
-compile-time sdk-packages model; core→ygg push sync became lazy pull (with a
-behavioral difference: deleted core users are only cleaned here on next
-access).
+rewriting (`services/texture_service.go::RewriteTexturesProperty`);
+`/generate-key` became first-run automatic key generation; runtime SDK
+endpoints became the compile-time sdk-packages model; core→ygg push sync
+became lazy pull (with a behavioral difference: deleted core users are only
+cleaned here on next access).
 
 **Class B (no replacement, mechanically recoverable)**:
 1. The mbe bind-completion branch (old §3.4 2.a: username collision + `mbe=1`
    → bind) can be lifted into `ProxyRegister`
-   (`services/auth_service.go:179-183` is where the hard-fail sits); all
-   tables it needs (`accounts.mbe/mojang_uuid`, `profiles`) are in this repo.
+   (`services/auth_service.go:L179-L183 @ 77fa3a7` is where the hard-fail
+   sits); all tables it needs (`accounts.mbe/mojang_uuid`, `profiles`) are in
+   this repo.
 2. `declare-email` is recoverable **in the core** (its dependencies —
    `users.email`, OAuth2 scope machinery — never left the core); whether it
    should be revived is author decision D4.
@@ -50,15 +51,16 @@ access).
 **Class C (author decisions required)** — old code cannot be moved back
 because its data dependencies were split across two services:
 - **D1 claim-user**: old impl wrote core `users.email/password` plus
-  `users.cbh/mojang_uuid` (now `accounts` here). Live consumer: HRPAuth-Spigot
-  `RegisterCommand` (`RegisterCommand.java:74`). Options: ygg-side claim + new
-  core internal API / self-claim via WebUI flow / drop it.
+  `users.cbh/mojang_uuid` (now `accounts` here). Live consumer: [xref]
+  HRPAuth-Spigot `RegisterCommand` (`RegisterCommand.java:74`). Options:
+  ygg-side claim + new core internal API / self-claim via WebUI flow / drop it.
 - **D2 force-bind**: old impl was a single-DB transaction; source data now
-  here, target auth (email+password) in core. Live consumer: HRPAuth-Spigot
-  `ForceBindCommand` (`ForceBindCommand.java:79`); HA-Contract roadmap 2.1
-  pending with owner "HRPAuth" (placement needs re-confirmation). Options:
-  implement here (core verifies credentials via `/internal/verify-credentials`)
-  / implement in core calling a new internal endpoint here / drop it.
+  here, target auth (email+password) in core. Live consumer: [xref]
+  HRPAuth-Spigot `ForceBindCommand` (`ForceBindCommand.java:79`); HA-Contract
+  roadmap 2.1 pending with owner "HRPAuth" (placement needs re-confirmation).
+  Options: implement here (core verifies credentials via
+  `/internal/verify-credentials`) / implement in core calling a new internal
+  endpoint here / drop it.
 - **D3 change-profile-name**: no rename endpoint exists anywhere; the old
   username↔profile-name sync direction was inverted by lazy pull. Options:
   self-service rename endpoint here / drop it.
@@ -66,9 +68,10 @@ because its data dependencies were split across two services:
 **Not decoupling losses**: `POST /login` and `/loginbymt` were already 410
 Gone stubs before the window (OAuth2 replaced them earlier); WinnerProxy's
 `DeclareEmail`/`EnableMojangBind`/`RegisterResponse.CBH` and this repo's
-orphan `ClaimAccount` (`services/auth_service.go:217-228`) never had call
-sites. HA-Contract `x-planned-endpoints` (claim-user, force-bind) were both
-implemented in the old core — "not implemented" there means *currently*.
+orphan `ClaimAccount` (`services/auth_service.go:L217-L228 @ 77fa3a7`) never
+had call sites. HA-Contract `x-planned-endpoints` (claim-user, force-bind)
+were both implemented in the old core — "not implemented" there means
+*currently*.
 
 ## Consequences
 
@@ -108,17 +111,25 @@ implemented in the old core — "not implemented" there means *currently*.
   routes + 12 business routes incl. `/admin/claim-user`, `/admin/force-bind`,
   `/change-profile-name`, `/generate-key`, `/texture/*`, `/services/sdk/:name`,
   `/services/list`).
-- Old semantics: HRPAuth `9ab4e64^:controllers/auth_controller.go:325-349`
-  (mbe bind branch), `:569-650` (ClaimUser), `:652-730` (ForceBind);
-  `9ab4e64^:controllers/user_profile_controller.go:112+` (ChangeProfileName);
-  `9ab4e64^:controllers/user_info_controller.go:106-184` (DeclareEmail);
-  `f170607^:controllers/keygen_controller.go` (keygen).
-- Live Spigot consumers: HRPAuth-Spigot `src/main/java/com/hrp/auth/proxy/
-  RegisterCommand.java:74`, `ForceBindCommand.java:79`, registered in
-  `HrpAuthProxy.java:53-54` (checked in this pass).
-- Replacement surfaces in this repo at `77fa3a7`: `main.go:113-134,147-200`;
-  `services/mbe_timeout.go:13-73`; `services/texture_service.go:519-566`;
-  `services/auth_service.go:128-132,179-183,217-228,286-316`.
-- Contract records: HA-Contract `yggdrasil-api.md` (§6 note :170-172, §Data
-  Consistency), `hrpauth-yggdrasil-business.yaml` (`x-planned-endpoints`),
-  `agents.md:60` (roadmap 2.1).
+- Old semantics: HRPAuth
+  [xref] `9ab4e64^:controllers/auth_controller.go:325-349` (mbe bind branch),
+  `:569-650` (ClaimUser), `:652-730` (ForceBind);
+  [xref] `9ab4e64^:controllers/user_profile_controller.go:112+`
+  (ChangeProfileName);
+  [xref] `9ab4e64^:controllers/user_info_controller.go:106-184`
+  (DeclareEmail); `f170607^:controllers/keygen_controller.go` (keygen).
+- Live Spigot consumers: HRPAuth-Spigot
+  [xref] `src/main/java/com/hrp/auth/proxy/RegisterCommand.java:74`,
+  `ForceBindCommand.java:79`, registered in `HrpAuthProxy.java:53-54`
+  (checked in this pass).
+- Replacement surfaces in this repo at `77fa3a7`:
+  `main.go:L113-L134 @ 77fa3a7`, `main.go:L147-L200 @ 77fa3a7`;
+  `services/mbe_timeout.go:L13-L73 @ 77fa3a7`;
+  `services/texture_service.go:L519-L566 @ 77fa3a7`;
+  `services/auth_service.go:L128-L132 @ 77fa3a7`,
+  `services/auth_service.go:L179-L183 @ 77fa3a7`,
+  `services/auth_service.go:L217-L228 @ 77fa3a7`,
+  `services/auth_service.go:L286-L316 @ 77fa3a7`.
+- Contract records: [xref] HA-Contract `yggdrasil-api.md` (§6 note
+  :170-172, §Data Consistency), `hrpauth-yggdrasil-business.yaml`
+  (`x-planned-endpoints`), `agents.md:60` (roadmap 2.1).

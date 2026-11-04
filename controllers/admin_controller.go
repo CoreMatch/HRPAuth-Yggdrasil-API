@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/clients"
-	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/services"
 )
 
@@ -139,10 +138,9 @@ func (ac *AdminController) ClaimUser(c *gin.Context) {
 }
 
 type forceBindRequest struct {
-	Username    string `json:"username"`
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-	ManageToken string `json:"manage_token"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // ForceBind handles POST /admin/force-bind: transfers the mojang_uuid from a
@@ -150,22 +148,22 @@ type forceBindRequest struct {
 // of the core user authenticated by email + password, then deletes the proxy
 // account. Restored pre-split semantics of the monolith's
 // POST /admin/force-bind, with the single-database transaction replaced by a
-// read-only core verification plus one local transaction.
+// read-only core verification plus one local transaction. Authentication uses
+// the same service-token tier as ClaimUser (author correction 2026-11-05:
+// the retired manage.token is no longer accepted).
 func (ac *AdminController) ForceBind(c *gin.Context) {
 	tokenCtx, ok := ac.resolveServiceBearer(c)
 	if !ok {
 		return
 	}
-	_ = tokenCtx // any service token may proceed; the manage token is the second factor
+	if !tokenCtx.HasScope("user.force-bind.as-service") {
+		respondError(c, http.StatusForbidden, CodeOAuthInsufficientScope, "insufficient scope")
+		return
+	}
 
 	var req forceBindRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respondError(c, http.StatusBadRequest, CodeInvalidJSONBody, "Invalid request body")
-		return
-	}
-
-	if config.AppConfig.Manage.Token == "" || req.ManageToken != config.AppConfig.Manage.Token {
-		respondError(c, http.StatusForbidden, CodeInvalidManageToken, "invalid manage_token")
 		return
 	}
 

@@ -75,9 +75,6 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 		"callback": map[string]interface{}{
 			"url": "http://localhost:2770",
 		},
-		"manage": map[string]interface{}{
-			"token": "",
-		},
 		"microservice": map[string]interface{}{
 			"name":              "HRPAuth-Yggdrasil-API",
 			"ttl_seconds":       120,
@@ -325,9 +322,8 @@ func (sc *StartupController) generatePseudoKeys(publicKeyPath, privateKeyPath st
 	return nil
 }
 
-// generateManageToken produces a random 32-byte (64 hex chars) Manage Token.
-// It is generated once at config-file creation time and persisted to
-// config.yaml under `manage.token`.
+// generateRandomString produces a fixed-length string from a static charset.
+// It is only used for the pseudo-random fallback signature keys.
 func (sc *StartupController) generateRandomString(length int) string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 	b := make([]byte, length)

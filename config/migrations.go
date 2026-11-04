@@ -23,7 +23,11 @@ type ConfigMigration struct {
 //   - "1": initial decoupled Yggdrasil-API service config
 //   - "2": remove static internal_key and add relay_path_prefix
 //   - "3": add profile_cards priority settings
-//   - "4": add manage.token (force-bind operator token)
+//   - "4": (reverted) added manage.token for force-bind; the field was
+//     retired again on 2026-11-05 when force-bind moved to OAuth2
+//     service-token scopes, so the version chain ends at "3". Config files
+//     already written at version "4" keep working: the loader ignores the
+//     unknown manage section and newer versions are never downgraded.
 func configMigrations() []ConfigMigration {
 	return []ConfigMigration{
 		{
@@ -60,21 +64,6 @@ func configMigrations() []ConfigMigration {
 					}
 				}
 				cfg["version"] = "3"
-				return nil
-			},
-		},
-		{
-			FromVersion: "3",
-			ToVersion:   "4",
-			Migrate: func(cfg map[string]interface{}, tokenGen func() string) error {
-				// Add manage section; token stays empty until the operator
-				// sets it (empty token rejects force-bind).
-				if _, ok := cfg["manage"].(map[string]interface{}); !ok {
-					cfg["manage"] = map[string]interface{}{
-						"token": "",
-					}
-				}
-				cfg["version"] = "4"
 				return nil
 			},
 		},

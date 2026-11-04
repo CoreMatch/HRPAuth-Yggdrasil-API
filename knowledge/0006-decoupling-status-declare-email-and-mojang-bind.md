@@ -3,6 +3,14 @@
 - **Status**: accepted
 - **Date**: 2026-11-04
 
+> **Update 2026-11-05** (author decisions, see ADR-0008): declare-email is
+> **confirmed deprecated with no successor** — the player-facing email path is
+> the claim flow (`POST /admin/claim-user`, implemented in this service; core
+> scope `user.declare-email` removed). The mojang-bind completion path gap
+> recorded below remains: `/admin/claim-user` and `/admin/force-bind` were
+> implemented, but neither consumes `accounts.mbe`; the §3.4-style mbe bind
+> branch is still unimplemented (class B, mechanically recoverable).
+
 ## Context
 
 Before the 2026-10-06 split, the HRPAuth core monolith owned two capabilities

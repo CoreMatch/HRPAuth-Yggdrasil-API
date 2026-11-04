@@ -45,3 +45,4 @@ Each entry is one page in ADR style:
 | [0005](0005-internal-surface-and-known-leftovers.md) | Internal Surface Authentication and Known Leftovers | accepted | 2026-11-04 |
 | [0006](0006-decoupling-status-declare-email-and-mojang-bind.md) | Decoupling Status of declare-email and mojang-bind-enable | accepted | 2026-11-04 |
 | [0007](0007-decoupling-inheritance-audit.md) | Decoupling Inheritance Audit — What Was Replaced, What Was Lost | accepted | 2026-11-05 |
+| [0008](0008-claim-force-bind-implementation.md) | Claim and Force-Bind Implementation; cbh Persistence Fix | accepted | 2026-11-05 |

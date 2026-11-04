@@ -43,3 +43,4 @@ Each entry is one page in ADR style:
 | [0003](0003-standalone-startup-and-core-integration.md) | Standalone Startup Is Possible; Core Integration Is Opt-In by Credential | accepted | 2026-11-04 |
 | [0004](0004-session-upsert-and-query-time-renewal.md) | Session Upsert and Query-Time Expiry Renewal | accepted | 2026-11-04 |
 | [0005](0005-internal-surface-and-known-leftovers.md) | Internal Surface Authentication and Known Leftovers | accepted | 2026-11-04 |
+| [0006](0006-decoupling-status-declare-email-and-mojang-bind.md) | Decoupling Status of declare-email and mojang-bind-enable | accepted | 2026-11-04 |

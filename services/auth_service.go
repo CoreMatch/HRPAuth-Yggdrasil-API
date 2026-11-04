@@ -198,6 +198,11 @@ func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*mo
 		if err := tx.Create(&account).Error; err != nil {
 			return err
 		}
+		// gorm omits zero-value fields that carry a column default on insert
+		// (cbh defaults to 1), so the proxy state must be written explicitly.
+		if err := tx.Model(&account).UpdateColumn("cbh", false).Error; err != nil {
+			return err
+		}
 
 		profile = models.Profile{
 			ID:        utils.GenerateUnsignedUUID(),
@@ -253,10 +258,39 @@ func (as *AuthService) getCachedUsername(coreUserID string) string {
 	// Update local Database
 	var account models.Account
 	if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err == nil {
-		database.DB.Model(&models.Profile{}).Where("account_id = ?", account.ID).Update("name", user.Username)
+		as.syncProfileNameToUsername(account.ID, user.Username)
 	}
 
 	return user.Username
+}
+
+// syncProfileNameToUsername follows a core username change by renaming the
+// account's game profile (author decision D3: the lazy username pull is the
+// only rename trigger; there is no dedicated rename endpoint). When the new
+// name is already taken by another profile, the rename is skipped and the
+// old name kept — uniqueness wins over freshness, because a failed unique
+// update would otherwise surface as a raw database error on every refresh.
+func (as *AuthService) syncProfileNameToUsername(accountID int, username string) {
+	var profile models.Profile
+	if err := database.DB.Where("account_id = ?", accountID).First(&profile).Error; err != nil {
+		return // no profile yet; nothing to rename
+	}
+	if profile.Name == username {
+		return
+	}
+
+	var conflict models.Profile
+	if err := database.DB.Where("name = ? AND id <> ?", username, profile.ID).First(&conflict).Error; err == nil {
+		log.Printf("[YGG-SVC] action=profile_rename account=%d from=%s to=%s result=skipped reason=name_taken", accountID, profile.Name, username)
+		return
+	}
+
+	if err := database.DB.Model(&models.Profile{}).Where("id = ?", profile.ID).Update("name", username).Error; err != nil {
+		// Lost a race against the unique name index: treat like a conflict.
+		log.Printf("[YGG-SVC] action=profile_rename account=%d from=%s to=%s result=failed err=%v", accountID, profile.Name, username, err)
+		return
+	}
+	log.Printf("[YGG-SVC] action=profile_rename account=%d from=%s to=%s result=success", accountID, profile.Name, username)
 }
 
 func (as *AuthService) SyncUsername(coreUserID, newUsername string) error {

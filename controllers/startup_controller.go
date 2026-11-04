@@ -75,6 +75,9 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 		"callback": map[string]interface{}{
 			"url": "http://localhost:2770",
 		},
+		"manage": map[string]interface{}{
+			"token": "",
+		},
 		"microservice": map[string]interface{}{
 			"name":              "HRPAuth-Yggdrasil-API",
 			"ttl_seconds":       120,
@@ -708,6 +711,7 @@ func buildRelayRules(base string, prefix string) []clients.RelayRule {
 		"/register",
 		"/player",
 		"/mojang",
+		"/admin",
 	}
 
 	relays := make([]clients.RelayRule, 0, len(paths))

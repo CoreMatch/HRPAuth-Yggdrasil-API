@@ -116,6 +116,7 @@ func TestBuildRelayRulesAddsPrefixToAllDestinations(t *testing.T) {
 		{Dest: "/yggdrasil-api/register", Source: "http://localhost:2770/register"},
 		{Dest: "/yggdrasil-api/player", Source: "http://localhost:2770/player"},
 		{Dest: "/yggdrasil-api/mojang", Source: "http://localhost:2770/mojang"},
+		{Dest: "/yggdrasil-api/admin", Source: "http://localhost:2770/admin"},
 	}
 
 	if len(got) != len(want) {

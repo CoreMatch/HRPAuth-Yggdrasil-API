@@ -65,6 +65,43 @@ func (c *CoreClient) doRequest(method, path string, body interface{}, result int
 	return nil
 }
 
+// doRequestWithCode decodes the unified response envelope even on 4xx/5xx so
+// callers can branch on the error `code`. It only returns an error for
+// transport failures or undecodable bodies; HTTP-level rejection is carried
+// by the decoded envelope (Success=false).
+func (c *CoreClient) doRequestWithCode(method, path string, body interface{}, result interface{}) error {
+	var bodyReader io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		bodyReader = bytes.NewBuffer(jsonBody)
+	}
+
+	req, err := http.NewRequest(method, c.BaseURL+path, bodyReader)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, result); err != nil {
+		return fmt.Errorf("core api returned status %d", resp.StatusCode)
+	}
+	return nil
+}
+
 func (c *CoreClient) VerifyCredentials(identifier, password string) (*models.User, error) {
 	var user models.User
 	body := map[string]string{
@@ -94,6 +131,107 @@ func (c *CoreClient) VerifyToken(token string) (*models.User, error) {
 		return nil, errors.New("token verification failed")
 	}
 	return &resp.Data, nil
+}
+
+// TokenContext is the resolved form of an OAuth2 access token on the core:
+// either a user identity or a service identity with its scope set.
+type TokenContext struct {
+	User      *models.User // nil for service tokens
+	IsService bool
+	Scopes    []string
+}
+
+// ErrEmailAlreadyRegistered maps the core's 409 when the claimed email is
+// already taken by another core user.
+var ErrEmailAlreadyRegistered = errors.New("email already registered")
+
+// ErrUsernameAlreadyBound maps the core's 409 when the claimed username
+// belongs to another core user.
+var ErrUsernameAlreadyBound = errors.New("username already bound")
+
+// ResolveToken resolves any OAuth2 access token (user or service) via the
+// core's /internal/verify-token.
+func (c *CoreClient) ResolveToken(token string) (*TokenContext, error) {
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			UID       uint     `json:"uid"`
+			UUID      string   `json:"uuid"`
+			Email     string   `json:"email"`
+			Username  string   `json:"username"`
+			IsService bool     `json:"is_service"`
+			Scopes    []string `json:"scopes"`
+		} `json:"data"`
+	}
+	body := map[string]string{
+		"token": token,
+	}
+	if err := c.doRequest("POST", "/internal/verify-token", body, &resp); err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, errors.New("token verification failed")
+	}
+
+	ctx := &TokenContext{
+		IsService: resp.Data.IsService,
+		Scopes:    resp.Data.Scopes,
+	}
+	if !ctx.IsService {
+		if resp.Data.UUID == "" {
+			return nil, errors.New("token verification failed")
+		}
+		ctx.User = &models.User{
+			UID:      resp.Data.UID,
+			UUID:     resp.Data.UUID,
+			Email:    resp.Data.Email,
+			Username: resp.Data.Username,
+		}
+	}
+	return ctx, nil
+}
+
+// HasScope reports whether the scope set contains the required scope.
+func (tc *TokenContext) HasScope(required string) bool {
+	for _, scope := range tc.Scopes {
+		if scope == required {
+			return true
+		}
+	}
+	return false
+}
+
+// ClaimUser asks the core to provision the user for a claimed proxy account.
+// The core enforces email uniqueness and username idempotency; conflict
+// statuses are mapped to typed errors.
+func (c *CoreClient) ClaimUser(username, email, password string) (*models.User, error) {
+	var resp struct {
+		Success bool `json:"success"`
+		Code    string
+		Data    struct {
+			UID  uint   `json:"uid"`
+			UUID string `json:"uuid"`
+		} `json:"data"`
+	}
+	body := map[string]string{
+		"username": username,
+		"email":    email,
+		"password": password,
+	}
+	err := c.doRequestWithCode("POST", "/internal/claim-user", body, &resp)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		switch resp.Code {
+		case "email_already_registered":
+			return nil, ErrEmailAlreadyRegistered
+		case "username_already_bound":
+			return nil, ErrUsernameAlreadyBound
+		}
+		return nil, fmt.Errorf("claim rejected by core: %s", resp.Code)
+	}
+	return &models.User{UID: resp.Data.UID, UUID: resp.Data.UUID}, nil
 }
 
 type UserInfoResponse struct {

@@ -23,6 +23,7 @@ type ConfigMigration struct {
 //   - "1": initial decoupled Yggdrasil-API service config
 //   - "2": remove static internal_key and add relay_path_prefix
 //   - "3": add profile_cards priority settings
+//   - "4": add manage.token (force-bind operator token)
 func configMigrations() []ConfigMigration {
 	return []ConfigMigration{
 		{
@@ -59,6 +60,21 @@ func configMigrations() []ConfigMigration {
 					}
 				}
 				cfg["version"] = "3"
+				return nil
+			},
+		},
+		{
+			FromVersion: "3",
+			ToVersion:   "4",
+			Migrate: func(cfg map[string]interface{}, tokenGen func() string) error {
+				// Add manage section; token stays empty until the operator
+				// sets it (empty token rejects force-bind).
+				if _, ok := cfg["manage"].(map[string]interface{}); !ok {
+					cfg["manage"] = map[string]interface{}{
+						"token": "",
+					}
+				}
+				cfg["version"] = "4"
 				return nil
 			},
 		},

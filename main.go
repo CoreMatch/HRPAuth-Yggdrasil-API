@@ -143,11 +143,18 @@ func main() {
 	registerCtrl := controllers.NewRegisterController()
 	internalCtrl := controllers.NewInternalController()
 	playerCtrl := controllers.NewPlayerController()
+	adminCtrl := controllers.NewAdminController()
 
 	r.GET("/", yggdrasilCtrl.Meta)
 	r.POST("/register", registerCtrl.Register)
 	r.POST("/internal/proxy-register", internalCtrl.ProxyRegister)
 	r.GET("/internal/heartbeat", internalCtrl.Heartbeat)
+
+	admin := r.Group("/admin")
+	{
+		admin.POST("/claim-user", adminCtrl.ClaimUser)
+		admin.POST("/force-bind", adminCtrl.ForceBind)
+	}
 
 	player := r.Group("/player")
 	{

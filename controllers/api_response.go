@@ -28,6 +28,7 @@ const (
 	CodeTargetNotFound                 = "target_not_found"
 	CodeNoMojangUUID                   = "no_mojang_uuid"
 	CodeUserNotClaimable               = "user_not_claimable"
+	CodeMojangUUIDAlreadyBound         = "mojang_uuid_already_bound"
 	CodeUsernameTooShort               = "username_too_short"
 	CodePasswordTooShort               = "password_too_short"
 	CodeUsernameAlreadyTaken           = "username_already_taken"

@@ -59,7 +59,8 @@ Key points:
   table prefixes distinct (core uses unprefixed names; this service defaults to
   `haygg_`).
 - The "Moved from core" comments in `models/models.go` exist only on `Token`,
-  `Session` and `ProfileKey` (`models/models.go:L10,L28,L44 @ 68feb97`).
+  `Session` and `ProfileKey` (`models/models.go:L10 @ 68feb97`,
+  `models/models.go:L28 @ 68feb97`, `models/models.go:L44 @ 68feb97`).
   `Profile` and `ProfileProperty` were moved too but carry no such comment —
   do not read the missing comment as "always lived here".
 - There is no data-migration tooling from the old core tables to these tables in
@@ -85,7 +86,8 @@ All paths relative to this repository at commit `68feb97` unless noted.
   HRPAuth `git show 9ab4e64^:database/migrations/000004_profile_keys.up.sql`.
 - Post-split core has no game tables: [xref] HRPAuth
   `database/migrations/000001_baseline.up.sql` (checked in this pass).
-- "Moved from core" comments: `models/models.go:L10,L28,L44 @ 68feb97`.
+- "Moved from core" comments: `models/models.go:L10 @ 68feb97`,
+  `models/models.go:L28 @ 68feb97`, `models/models.go:L44 @ 68feb97`.
 - Prefix string replacement (incl. stale `texture_list_*` names):
   `controllers/startup_controller.go:L368-L379 @ 68feb97`.
 - Squash and post-squash clamp: commits `fa788be`, `45000e9`;

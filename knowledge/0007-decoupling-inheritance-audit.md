@@ -87,10 +87,13 @@ implemented in the old core — "not implemented" there means *currently*.
   > `POST /admin/force-bind`; `user.declare-email` was removed with the
   > declare-email deprecation; `register.manage` and
   > `profile.change-name(.as-service)` were removed on 2026-11-05 (HRPAuth
-  > `6919a12`) after confirming no endpoint consumed them. Still registered
-  > but unconsumed at that date: `user.mojang-bind-enable(.as-service)` /
-  > `user.mojang-bind-disable.as-service`, `totp.status(.as-service)`,
-  > `email-2fa.status(.as-service)` — left for a future author decision.
+  > `6919a12`) after confirming no endpoint consumed them. A second batch
+  > followed the same day (HRPAuth `0ccd223`): `user.mojang-bind-enable(.as-service)`,
+  > `user.mojang-bind-disable.as-service`, `totp.status(.as-service)` and
+  > `email-2fa.status(.as-service)` were removed as well — the Mojang bind
+  > flow lives on this service's `/player` endpoints (which do not consume
+  > core scopes), and the totp/email-2fa status scopes were never wired to an
+  > endpoint. No orphan scope families from this audit remain registered.
 - The lazy-pull replacement (class A #15) means game accounts of deleted core
   users persist until next access; if that is unacceptable, an explicit
   deletion signal would be a new design item.

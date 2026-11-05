@@ -22,10 +22,39 @@ Core integration is **switched on solely by filling `core_api.client_id` /
   metadata fetch (`controllers/startup_controller.go:L586-L590`),
   presence/relay registration
   (`controllers/startup_controller.go:L642-L646`).
-- **Startup never hard-fails on core problems.** Metadata fetch failure only warns
-  (`main.go:L106-L108`); registration and SDK upload run in a background
+- **Startup hard-fails only on credential resolution; other core problems
+  stay warn-only.** Metadata fetch failure only warns
+  (`main.go:L116-L118`); registration and SDK upload run in a background
   goroutine after a 2-second delay and only warn on failure
-  (`main.go:L227-L235`).
+  (`main.go:L238-L246`). Credential resolution (next item) runs right after
+  `config.Load()` and aborts startup on any failure
+  (`main.go:L99-L107`).
+- **Credential resolution** (`main.go::resolveCoreCredentials`): the
+  configured `core_api` credentials are classified at startup via HRPAuth's
+  RFC 7591 protected registration endpoint `POST /oauth/register`
+  (`clients/selfregister.go::ResolveServiceCredentials`), which only
+  authenticates the built-in super client —
+  - `201`: super credentials; exchanged for this service's own
+    low-privilege client (`client_id` = `microservice.name`, the same name
+    registered in presence; stable secret via HRPAuth get-or-create). The
+    super secret is discarded from memory and the config file rewritten
+    (`config/configwrite.go::RewriteClientCredentials`: atomic temp-file +
+    rename, `.bak`, 0600, re-parse validation, comment-preserving
+    yaml.Node surgery).
+  - `400 invalid_client_metadata`: super credentials but registration
+    rejected (presence missing, scope not allowed) — startup aborts.
+  - `401`: not super; a plain `client_credentials` token request verifies
+    the pair is an ordinary service client, reused as-is (idempotent path
+    — no exchange, no write-back).
+  The presence bonjour goes first as a token-less plain request
+  (`clients/selfregister.go::RegisterPresencePlain`), because registration
+  requires a presence-registered name and no super-derived token may ride
+  along on anything but the exchange itself. Entrypoint-rendered
+  deployments (`config/configwrite.go::IsRenderedDeployment`:
+  `CONFIG_TEMPLATE` + `RENDERED_CONFIG`, the HA container convention) are
+  only warned about — their config is re-rendered every start, so the
+  template/environment side must carry the credentials. A failed
+  write-back is not fatal (ERROR log; next startup exchanges again).
 - When configured, `RegisterService()` performs three steps against the core
   (`controllers/startup_controller.go:L635-L691`):
   1. `POST /services/presence` with `security_level: 0` — deliberately the lowest
@@ -85,7 +114,14 @@ Core integration is **switched on solely by filling `core_api.client_id` /
 All paths relative to this repository unless noted.
 
 - Opt-in client construction: `utils/core_api_client.go:L26-L43`.
-- Startup sequence and warn-only degradation: `main.go:L90-L239`.
+- Startup sequence and warn-only degradation: `main.go:L92-L250`.
+- Credential resolution / super exchange:
+  `clients/selfregister.go::ResolveServiceCredentials`,
+  `clients/selfregister.go::RegisterPresencePlain`; startup wiring
+  `main.go::resolveCoreCredentials`; write-back
+  `config/configwrite.go::RewriteClientCredentials`,
+  rendered-deployment detection `config/configwrite.go::IsRenderedDeployment`
+  (env convention set by `docker-entrypoint.sh`).
 - Presence registration (level 0 comment, scope, root metadata):
   `controllers/startup_controller.go:L653-L671`.
 - Relay rule builder and default prefix:
@@ -93,7 +129,7 @@ All paths relative to this repository unless noted.
   `config/config.go:L144` (`DefaultRelayPathPrefix = "/yggdrasil-api"`).
 - Internal key fetch: `controllers/startup_controller.go:L608-L633`.
 - SDK embed and upload trigger: `main.go:L18-L24`,
-  `main.go:L233-L234`.
+  `main.go:L244-L245`.
 - 409 conflict → delete → single retry:
   `controllers/sdk_upload.go:L148-L162`,
   `clients/core_client.go:L330-L332` (conflict mapping),

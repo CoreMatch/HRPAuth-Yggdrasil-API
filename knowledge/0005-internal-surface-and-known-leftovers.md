@@ -1,7 +1,6 @@
 # ADR-0005: Internal Surface Authentication and Known Leftovers
 
 - **Status**: accepted
-- **Date**: 2026-11-04
 
 ## Context
 

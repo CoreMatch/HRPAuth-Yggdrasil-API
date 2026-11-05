@@ -1,7 +1,6 @@
 # ADR-0009: `private_key.pem` in Git History — Never Used, No Rotation Needed
 
 - **Status**: accepted
-- **Date**: 2026-11-05
 
 ## Context
 
@@ -32,7 +31,7 @@ history (no force-push).
 - **Do not rewrite git history** (no filter-branch/force-push) — the author
   decided the churn is not justified for an unused key.
 - Keep the current guarantee: no private key or passphrase file is tracked or
-  present in the working tree. Verified on 2026-11-05 across all five HA
+  present in the working tree. Verified across all five HA
   repositories (HA-Contract, HRPAuth, HRPAuth-Yggdrasil-API, WinnerProxy,
   HRPAuth-Spigot): `git ls-files` shows no `.pem`/`.key`/secret files, and
   all working trees are clean. Runtime-generated keys live outside the

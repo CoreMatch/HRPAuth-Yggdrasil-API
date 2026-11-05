@@ -1,7 +1,6 @@
 # ADR-0007: Decoupling Inheritance Audit — What Was Replaced, What Was Lost
 
 - **Status**: accepted
-- **Date**: 2026-11-05
 
 ## Context
 

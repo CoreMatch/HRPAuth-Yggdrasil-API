@@ -1,7 +1,6 @@
 # ADR-0008: Claim and Force-Bind Implementation; cbh Persistence Fix
 
 - **Status**: accepted
-- **Date**: 2026-11-05
 
 ## Context
 

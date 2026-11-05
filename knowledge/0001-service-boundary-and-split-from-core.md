@@ -1,7 +1,6 @@
 # ADR-0001: Service Boundary: Split From the HRPAuth Core
 
 - **Status**: accepted
-- **Date**: 2026-11-04
 
 ## Context
 

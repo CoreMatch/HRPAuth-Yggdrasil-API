@@ -26,7 +26,7 @@ fix the entry, never the contract, and surface the conflict to the owner.
 
 Each entry is one page in ADR style:
 
-- **Status** (`accepted` / `superseded` / ...), **Date**
+- **Status** (`accepted` / `superseded` / ...)
 - **Context** — the problem and constraints
 - **Decision** — what was chosen
 - **Consequences** — including costs and limitations
@@ -36,14 +36,14 @@ Each entry is one page in ADR style:
 
 ## Entries
 
-| # | Title | Status | Date |
-|---|-------|--------|------|
-| [0001](0001-service-boundary-and-split-from-core.md) | Service Boundary: Split From the HRPAuth Core | accepted | 2026-11-04 |
-| [0002](0002-game-data-ownership.md) | Game Data Ownership: Six Prefixed Tables and the accounts Bridge | accepted | 2026-11-04 |
-| [0003](0003-standalone-startup-and-core-integration.md) | Standalone Startup Is Possible; Core Integration Is Opt-In by Credential | accepted | 2026-11-04 |
-| [0004](0004-session-upsert-and-query-time-renewal.md) | Session Upsert and Query-Time Expiry Renewal | accepted | 2026-11-04 |
-| [0005](0005-internal-surface-and-known-leftovers.md) | Internal Surface Authentication and Known Leftovers | accepted | 2026-11-04 |
-| [0006](0006-decoupling-status-declare-email-and-mojang-bind.md) | Decoupling Status of declare-email and mojang-bind-enable | accepted | 2026-11-04 |
-| [0007](0007-decoupling-inheritance-audit.md) | Decoupling Inheritance Audit — What Was Replaced, What Was Lost | accepted | 2026-11-05 |
-| [0008](0008-claim-force-bind-implementation.md) | Claim and Force-Bind Implementation; cbh Persistence Fix | accepted | 2026-11-05 |
-| [0009](0009-private-key-pem-history-no-rotation.md) | private_key.pem in Git History — Never Used, No Rotation Needed | accepted | 2026-11-05 |
+| # | Title | Status |
+|---|-------|--------|
+| [0001](0001-service-boundary-and-split-from-core.md) | Service Boundary: Split From the HRPAuth Core | accepted |
+| [0002](0002-game-data-ownership.md) | Game Data Ownership: Six Prefixed Tables and the accounts Bridge | accepted |
+| [0003](0003-standalone-startup-and-core-integration.md) | Standalone Startup Is Possible; Core Integration Is Opt-In by Credential | accepted |
+| [0004](0004-session-upsert-and-query-time-renewal.md) | Session Upsert and Query-Time Expiry Renewal | accepted |
+| [0005](0005-internal-surface-and-known-leftovers.md) | Internal Surface Authentication and Known Leftovers | accepted |
+| [0006](0006-decoupling-status-declare-email-and-mojang-bind.md) | Decoupling Status of declare-email and mojang-bind-enable | accepted |
+| [0007](0007-decoupling-inheritance-audit.md) | Decoupling Inheritance Audit — What Was Replaced, What Was Lost | accepted |
+| [0008](0008-claim-force-bind-implementation.md) | Claim and Force-Bind Implementation; cbh Persistence Fix | accepted |
+| [0009](0009-private-key-pem-history-no-rotation.md) | private_key.pem in Git History — Never Used, No Rotation Needed | accepted |

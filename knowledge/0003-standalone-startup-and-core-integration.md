@@ -1,7 +1,6 @@
 # ADR-0003: Standalone Startup Is Possible; Core Integration Is Opt-In by Credential
 
 - **Status**: accepted
-- **Date**: 2026-11-04
 
 ## Context
 

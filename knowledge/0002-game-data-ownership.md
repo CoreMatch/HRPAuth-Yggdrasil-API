@@ -1,7 +1,6 @@
 # ADR-0002: Game Data Ownership: Six Prefixed Tables and the accounts Bridge
 
 - **Status**: accepted
-- **Date**: 2026-11-04
 
 ## Context
 

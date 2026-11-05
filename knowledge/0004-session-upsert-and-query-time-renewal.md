@@ -1,7 +1,6 @@
 # ADR-0004: Session Upsert and Query-Time Expiry Renewal
 
 - **Status**: accepted
-- **Date**: 2026-11-04
 
 ## Context
 

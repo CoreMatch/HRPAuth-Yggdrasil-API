@@ -1,7 +1,6 @@
 # ADR-0006: Decoupling Status of declare-email and mojang-bind-enable
 
 - **Status**: accepted
-- **Date**: 2026-11-04
 
 ## Context
 

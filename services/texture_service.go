@@ -97,9 +97,9 @@ func (ts *TextureService) ValidateTexture(file io.Reader, textureType string, mo
 
 	switch textureType {
 	case "skin":
-                if _, err := skinAvatarBounds(width, height); err != nil {
-                        return nil, err
-                }
+		if _, err := skinAvatarBounds(width, height); err != nil {
+			return nil, err
+		}
 		if !isValidSkinSize(width, height) {
 			if isProportional(width, height) {
 				result.Notices = append(result.Notices,
@@ -274,30 +274,30 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 		return nil, err
 	}
 
-        var avatarData []byte
-        if textureType == "skin" {
-                avatarData, err = generateSkinAvatar(validated.Data)
-                if err != nil {
-                        return nil, err
-                }
-        }
+	var avatarData []byte
+	if textureType == "skin" {
+		avatarData, err = generateSkinAvatar(validated.Data)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-        unlock, err := acquireTextureStorageLock()
-        if err != nil {
-                return nil, err
-        }
-        defer unlock()
+	unlock, err := acquireTextureStorageLock()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 
 	hash := ts.CalculateHash(validated.Data)
 
 	if err := ts.SaveTexture(validated.Data, hash); err != nil {
 		return nil, err
 	}
-        if textureType == "skin" {
-                if err := ts.SavePreview(avatarData, avatarFileName(hash)); err != nil {
-                        return nil, fmt.Errorf("failed to save skin avatar: %w", err)
-                }
-        }
+	if textureType == "skin" {
+		if err := ts.SavePreview(avatarData, avatarFileName(hash)); err != nil {
+			return nil, fmt.Errorf("failed to save skin avatar: %w", err)
+		}
+	}
 
 	// Generate and save preview
 	previewData, err := ts.GeneratePreviewImage(validated.Data, textureType, model)
@@ -362,58 +362,58 @@ func (ts *TextureService) UpdateProfileTexture(profileID, textureType, textureUR
 }
 
 func (ts *TextureService) RemoveProfileTexture(profileID, textureType string) error {
-        if textureType != "skin" && textureType != "cape" {
-                return fmt.Errorf("invalid texture type: %s", textureType)
-        }
-        unlock, err := acquireTextureStorageLock()
+	if textureType != "skin" && textureType != "cape" {
+		return fmt.Errorf("invalid texture type: %s", textureType)
+	}
+	unlock, err := acquireTextureStorageLock()
 	if err != nil {
 		return err
 	}
-        defer unlock()
+	defer unlock()
 
-        return database.DB.Transaction(func(tx *gorm.DB) error {
-                var existingProp models.ProfileProperty
-                if err := tx.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").First(&existingProp).Error; err != nil {
-                        return fmt.Errorf("textures property not found: %w", err)
-                }
-                decoded, err := base64.StdEncoding.DecodeString(existingProp.Value)
-                if err != nil {
-                        return fmt.Errorf("failed to decode textures property: %w", err)
-                }
-                var payload models.TexturePayload
-                if err := json.Unmarshal(decoded, &payload); err != nil {
-                        return fmt.Errorf("failed to unmarshal textures payload: %w", err)
-                }
-                key := strings.ToUpper(textureType)
-                if _, ok := payload.Textures[key]; !ok {
-                        return fmt.Errorf("texture not found")
-                }
-                tombstoneValue := ts.createTombstoneValue(&existingProp, textureType)
-                delete(payload.Textures, key)
-                deleteWhen := time.Now().Unix() + 7*86400
-                if len(payload.Textures) == 0 {
-                        return tx.Model(&existingProp).Updates(map[string]interface{}{
-                                "value": tombstoneValue, "signature": "", "delete_when": deleteWhen,
-                        }).Error
-                }
-                newData, err := json.Marshal(payload)
-                if err != nil {
-                        return err
-                }
-                newValue := base64.StdEncoding.EncodeToString(newData)
-                signature, err := ts.SignTextureValue(newValue)
-                if err != nil {
-                        return err
-                }
-                if err := tx.Model(&existingProp).Updates(map[string]interface{}{
-                        "value": newValue, "signature": signature,
-                }).Error; err != nil {
-                        return err
-                }
-                return tx.Create(&models.ProfileProperty{
-                        ProfileID: profileID, Name: "textures", Value: tombstoneValue, DeleteWhen: deleteWhen,
-                }).Error
-        })
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		var existingProp models.ProfileProperty
+		if err := tx.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").First(&existingProp).Error; err != nil {
+			return fmt.Errorf("textures property not found: %w", err)
+		}
+		decoded, err := base64.StdEncoding.DecodeString(existingProp.Value)
+		if err != nil {
+			return fmt.Errorf("failed to decode textures property: %w", err)
+		}
+		var payload models.TexturePayload
+		if err := json.Unmarshal(decoded, &payload); err != nil {
+			return fmt.Errorf("failed to unmarshal textures payload: %w", err)
+		}
+		key := strings.ToUpper(textureType)
+		if _, ok := payload.Textures[key]; !ok {
+			return fmt.Errorf("texture not found")
+		}
+		tombstoneValue := ts.createTombstoneValue(&existingProp, textureType)
+		delete(payload.Textures, key)
+		deleteWhen := time.Now().Unix() + 7*86400
+		if len(payload.Textures) == 0 {
+			return tx.Model(&existingProp).Updates(map[string]interface{}{
+				"value": tombstoneValue, "signature": "", "delete_when": deleteWhen,
+			}).Error
+		}
+		newData, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		newValue := base64.StdEncoding.EncodeToString(newData)
+		signature, err := ts.SignTextureValue(newValue)
+		if err != nil {
+			return err
+		}
+		if err := tx.Model(&existingProp).Updates(map[string]interface{}{
+			"value": newValue, "signature": signature,
+		}).Error; err != nil {
+			return err
+		}
+		return tx.Create(&models.ProfileProperty{
+			ProfileID: profileID, Name: "textures", Value: tombstoneValue, DeleteWhen: deleteWhen,
+		}).Error
+	})
 }
 
 func (ts *TextureService) createTombstoneValue(prop *models.ProfileProperty, textureType string) string {
@@ -658,12 +658,12 @@ func (ts *TextureService) GetSkinTexturePathByProfileName(name string) (string, 
 }
 
 func (ts *TextureService) CleanupOrphanedTextures() int {
-        unlock, err := acquireTextureStorageLock()
-        if err != nil {
-                log.Printf("[TextureCleanup] failed to lock texture storage: %v", err)
-                return 0
-        }
-        defer unlock()
+	unlock, err := acquireTextureStorageLock()
+	if err != nil {
+		log.Printf("[TextureCleanup] failed to lock texture storage: %v", err)
+		return 0
+	}
+	defer unlock()
 
 	var orphans []models.ProfileProperty
 	now := time.Now().Unix()
@@ -674,48 +674,48 @@ func (ts *TextureService) CleanupOrphanedTextures() int {
 		return 0
 	}
 
-        var retained []models.ProfileProperty
-        if err := database.DB.Where("name = ? AND (delete_when = 0 OR delete_when > ?)", "textures", now).Find(&retained).Error; err != nil {
-                log.Printf("[TextureCleanup] failed to query retained textures: %v", err)
-                return 0
-        }
-        referenced := make(map[string]bool)
-        for _, prop := range retained {
-                hashes, err := textureHashes(prop.Value)
-                if err != nil {
-                        log.Printf("[TextureCleanup] cannot inspect retained property %d: %v", prop.ID, err)
-                        return 0
-                }
-                for _, hash := range hashes {
-                        referenced[hash] = true
-                }
-        }
+	var retained []models.ProfileProperty
+	if err := database.DB.Where("name = ? AND (delete_when = 0 OR delete_when > ?)", "textures", now).Find(&retained).Error; err != nil {
+		log.Printf("[TextureCleanup] failed to query retained textures: %v", err)
+		return 0
+	}
+	referenced := make(map[string]bool)
+	for _, prop := range retained {
+		hashes, err := textureHashes(prop.Value)
+		if err != nil {
+			log.Printf("[TextureCleanup] cannot inspect retained property %d: %v", prop.ID, err)
+			return 0
+		}
+		for _, hash := range hashes {
+			referenced[hash] = true
+		}
+	}
 
 	deleted := 0
 	for _, orphan := range orphans {
-                hashes, err := textureHashes(orphan.Value)
-                if err != nil {
-                        log.Printf("[TextureCleanup] cannot inspect orphan property %d: %v", orphan.ID, err)
-                        continue
-                }
-                failed := false
-                for _, hash := range hashes {
-                        if !referenced[hash] {
-                                if err := ts.DeletePreview(avatarFileName(hash)); err != nil {
-                                        log.Printf("[TextureCleanup] failed to delete avatar %s: %v", hash, err)
-                                        failed = true
-                                        break
-                                }
-                                if err := ts.DeleteTexture(hash); err != nil {
-                                        log.Printf("[TextureCleanup] failed to delete texture %s: %v", hash, err)
-                                        failed = true
-                                        break
-                                }
+		hashes, err := textureHashes(orphan.Value)
+		if err != nil {
+			log.Printf("[TextureCleanup] cannot inspect orphan property %d: %v", orphan.ID, err)
+			continue
+		}
+		failed := false
+		for _, hash := range hashes {
+			if !referenced[hash] {
+				if err := ts.DeletePreview(avatarFileName(hash)); err != nil {
+					log.Printf("[TextureCleanup] failed to delete avatar %s: %v", hash, err)
+					failed = true
+					break
+				}
+				if err := ts.DeleteTexture(hash); err != nil {
+					log.Printf("[TextureCleanup] failed to delete texture %s: %v", hash, err)
+					failed = true
+					break
+				}
 			}
 		}
-                if failed {
-                        continue
-                }
+		if failed {
+			continue
+		}
 		if err := database.DB.Delete(&orphan).Error; err != nil {
 			log.Printf("[TextureCleanup] failed to delete orphan row %d: %v", orphan.ID, err)
 			continue
@@ -753,7 +753,7 @@ func (ts *TextureService) GetPreviewByFileName(fileName string) ([]byte, string,
 
 func (ts *TextureService) GetTextures(profileID string) (map[string]models.TextureInfo, error) {
 	var props []models.ProfileProperty
-        if err := database.DB.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").Find(&props).Error; err != nil {
+	if err := database.DB.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").Find(&props).Error; err != nil {
 		return nil, err
 	}
 

@@ -58,15 +58,15 @@ func NewProfileKeyService() *ProfileKeyService {
 }
 
 func (ps *ProfileKeyService) IssueOrRotate(accountID int, forceRotate bool) (*IssuedProfileKey, error) {
-        if accountID == 0 {
-                return nil, fmt.Errorf("account id required")
+	if accountID == 0 {
+		return nil, fmt.Errorf("account id required")
 	}
 
 	now := time.Now()
 
 	if !forceRotate {
 		var existing models.ProfileKey
-                  err := database.DB.Where("account_id = ?", accountID).First(&existing).Error
+		err := database.DB.Where("account_id = ?", accountID).First(&existing).Error
 		if err == nil {
 			if existing.ExpiresAt.After(now.Add(profileKeyRefresh)) {
 				return &IssuedProfileKey{
@@ -85,7 +85,7 @@ func (ps *ProfileKeyService) IssueOrRotate(accountID int, forceRotate bool) (*Is
 		return nil, err
 	}
 
-        if err := ps.persist(accountID, issued); err != nil {
+	if err := ps.persist(accountID, issued); err != nil {
 		return nil, err
 	}
 	return issued, nil
@@ -151,7 +151,7 @@ func (ps *ProfileKeyService) signPublicKey(expiresAt time.Time, publicKeyPEM []b
 
 func (ps *ProfileKeyService) persist(accountID int, issued *IssuedProfileKey) error {
 	row := models.ProfileKey{
-                AccountID:          accountID,
+		AccountID:          accountID,
 		PublicKey:          issued.PublicKey,
 		PrivateKey:         issued.PrivateKey,
 		PublicKeySignature: issued.PublicKeySignature,
@@ -159,15 +159,15 @@ func (ps *ProfileKeyService) persist(accountID int, issued *IssuedProfileKey) er
 		RefreshedAfter:     issued.RefreshedAfter,
 	}
 
-        err := database.DB.Where("account_id = ?", accountID).
+	err := database.DB.Where("account_id = ?", accountID).
 		Assign(row).
-                FirstOrCreate(&models.ProfileKey{AccountID: accountID}).Error
+		FirstOrCreate(&models.ProfileKey{AccountID: accountID}).Error
 	if err != nil {
 		return fmt.Errorf("failed to persist profile key: %v", err)
 	}
 
 	return database.DB.Model(&models.ProfileKey{}).
-                Where("account_id = ?", accountID).
+		Where("account_id = ?", accountID).
 		Updates(map[string]interface{}{
 			"public_key":           issued.PublicKey,
 			"private_key":          issued.PrivateKey,
@@ -179,7 +179,7 @@ func (ps *ProfileKeyService) persist(accountID int, issued *IssuedProfileKey) er
 
 func (ps *ProfileKeyService) GetByAccountID(accountID int) (*models.ProfileKey, error) {
 	var row models.ProfileKey
-        if err := database.DB.Where("account_id = ?", accountID).First(&row).Error; err != nil {
+	if err := database.DB.Where("account_id = ?", accountID).First(&row).Error; err != nil {
 		return nil, err
 	}
 	return &row, nil

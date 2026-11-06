@@ -255,19 +255,6 @@ func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*mo
 	return &account, &profile, err
 }
 
-func (as *AuthService) ClaimAccount(mojangUUID, coreUserID string) error {
-	mojangUUID = utils.NormalizeMojangUUID(mojangUUID)
-	var account models.Account
-	if err := database.DB.Where("mojang_uuid = ? AND cbh = 0", mojangUUID).First(&account).Error; err != nil {
-		return fmt.Errorf("proxy account not found for claiming")
-	}
-
-	return database.DB.Model(&account).Updates(map[string]interface{}{
-		"core_user_id": coreUserID,
-		"cbh":          true, // Now claimed by human
-	}).Error
-}
-
 func (as *AuthService) getCachedUsername(coreUserID string) string {
 	ctx := context.Background()
 	key := config.AppConfig.Redis.Prefix + "username:" + coreUserID
@@ -327,15 +314,6 @@ func (as *AuthService) syncProfileNameToUsername(accountID int, username string)
 		return
 	}
 	log.Printf("[YGG-SVC] action=profile_rename account=%d from=%s to=%s result=success", accountID, profile.Name, username)
-}
-
-func (as *AuthService) SyncUsername(coreUserID, newUsername string) error {
-	// Replaced by lazy loading logic, but keeping the method signature for now if needed
-	// Or just clear the cache to force a refresh
-	ctx := context.Background()
-	key := config.AppConfig.Redis.Prefix + "username:" + coreUserID
-	redis.Client.Del(ctx, key)
-	return nil
 }
 
 func (as *AuthService) DeleteAccount(coreUserID string) error {
@@ -504,20 +482,6 @@ func (as *AuthService) InvalidateAllAccountTokens(accountID int) bool {
 		log.Printf("[YGG-SVC] action=invalidate_all_tokens account=%d rows=%d", accountID, result.RowsAffected)
 	}
 	return result.Error == nil
-}
-
-func (as *AuthService) InvalidateCoreUserTokens(coreUserID string) error {
-	var account models.Account
-	if err := database.DB.Where("core_user_id = ?", coreUserID).First(&account).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil
-		}
-		return err
-	}
-	if !as.InvalidateAllAccountTokens(account.ID) {
-		return fmt.Errorf("failed to invalidate account tokens")
-	}
-	return nil
 }
 
 func (as *AuthService) GetValidTokenByClientToken(accountID int, clientToken string) *models.Token {
@@ -752,14 +716,6 @@ func (as *AuthService) RecordLoginAttempt(identifier string, success bool) {
 	pipe.Incr(ctx, key)
 	pipe.Expire(ctx, key, window)
 	_, _ = pipe.Exec(ctx)
-}
-
-func (as *AuthService) GetUserByID(userUUID string) *UserInfo {
-	// For simplicity, we can assume we don't have a direct GetUserByID internal API yet,
-	// but we might need it. Let's assume the CoreClient has it or we use profiles to find user.
-	// Actually, let's just use VerifyCredentials or a new one.
-	// For now, I'll return a placeholder or implement it in CoreClient.
-	return nil
 }
 
 func (as *AuthService) GetProfileByName(name string) *models.Profile {

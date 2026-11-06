@@ -177,14 +177,6 @@ func (ps *ProfileKeyService) persist(accountID int, issued *IssuedProfileKey) er
 		}).Error
 }
 
-func (ps *ProfileKeyService) GetByAccountID(accountID int) (*models.ProfileKey, error) {
-	var row models.ProfileKey
-	if err := database.DB.Where("account_id = ?", accountID).First(&row).Error; err != nil {
-		return nil, err
-	}
-	return &row, nil
-}
-
 func (ps *ProfileKeyService) BuildResponse(issued *IssuedProfileKey) ProfileKeyResponse {
 	var resp ProfileKeyResponse
 	resp.KeyPair.PrivateKey = issued.PrivateKey
@@ -194,16 +186,6 @@ func (ps *ProfileKeyService) BuildResponse(issued *IssuedProfileKey) ProfileKeyR
 	resp.ExpiresAt = issued.ExpiresAt.UTC().Format(time.RFC3339)
 	resp.RefreshedAfter = issued.RefreshedAfter.UTC().Format(time.RFC3339)
 	return resp
-}
-
-func (ps *ProfileKeyService) CleanupExpired() int64 {
-	now := time.Now()
-	res := database.DB.Where("expires_at < ?", now).Delete(&models.ProfileKey{})
-	if res.Error != nil {
-		log.Printf("[profile-key] cleanup error: %v", res.Error)
-		return 0
-	}
-	return res.RowsAffected
 }
 
 func (ps *ProfileKeyService) BuildPublicKeysResponse() PublicKeysResponse {

@@ -73,7 +73,7 @@ Core integration is **switched on solely by filling `core_api.client_id` /
   `/services/sdk-packages`. On HTTP 409 (package name already exists) the old
   package is DELETEd and the upload retried exactly once
   (`controllers/sdk_upload.go:L133-L165`,
-  `clients/core_client.go:L302-L360`).
+  `clients/core_client.go:L294-L352`).
   `manifest.json` profile-card priorities are patched from
   `microservice.profile_cards` config before packing
   (`controllers/sdk_upload.go:L40-L74`).
@@ -132,8 +132,8 @@ All paths relative to this repository unless noted.
   `main.go:L244-L245`.
 - 409 conflict → delete → single retry:
   `controllers/sdk_upload.go:L148-L162`,
-  `clients/core_client.go:L330-L332` (conflict mapping),
-  `clients/core_client.go:L342-L360` (delete).
+  `clients/core_client.go:L322-L323` (conflict mapping),
+  `clients/core_client.go:L334-L352` (delete).
 - Manifest priority patching: `controllers/sdk_upload.go:L40-L74`;
   priorities config `config.yaml:L16-L18`.
 - Proxy-first credential verification:

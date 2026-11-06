@@ -261,10 +261,6 @@ type PresenceScope struct {
 	FrontendAreas []string `json:"frontend_areas"`
 }
 
-func (c *CoreClient) RegisterPresence(req PresenceRequest) error {
-	return c.doRequest("POST", "/services/presence", req, nil)
-}
-
 type RelayRule struct {
 	Dest   string `json:"dest"`
 	Source string `json:"source"`
@@ -273,10 +269,6 @@ type RelayRule struct {
 type RelayRequest struct {
 	Name   string      `json:"name"`
 	Relays []RelayRule `json:"relays"`
-}
-
-func (c *CoreClient) RegisterRelay(req RelayRequest) error {
-	return c.doRequest("POST", "/services/relay", req, nil)
 }
 
 type CoreMetadata struct {

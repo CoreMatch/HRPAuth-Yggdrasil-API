@@ -20,11 +20,6 @@ import (
 //go:embed sdk/*
 var sdkFS embed.FS
 
-// GetSDKFS returns the embedded SDK file system.
-func GetSDKFS() embed.FS {
-	return sdkFS
-}
-
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := config.AppConfig.Server.CORSOrigin

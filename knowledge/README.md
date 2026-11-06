@@ -47,3 +47,11 @@ Each entry is one page in ADR style:
 | [0007](0007-decoupling-inheritance-audit.md) | Decoupling Inheritance Audit — What Was Replaced, What Was Lost | accepted |
 | [0008](0008-claim-force-bind-implementation.md) | Claim and Force-Bind Implementation; cbh Persistence Fix | accepted |
 | [0009](0009-private-key-pem-history-no-rotation.md) | private_key.pem in Git History — Never Used, No Rotation Needed | accepted |
+| [0010](0010-yggdrasil-api-surface.md) | Yggdrasil API Surface Reference (single source of truth) | accepted |
+| [0011](0011-feature-flags.md) | Yggdrasil Feature Flags | accepted |
+| [0012](0012-legacy-skin-api.md) | Legacy Skin API (GET /skins/MinecraftSkins/{username}.png) | accepted |
+| [0013](0013-profile-keys.md) | Profile Keys (Minecraft 1.19+ Chat Signing) | accepted |
+| [0014](0014-interaction-contract.md) | External Interaction Contract | accepted |
+
+Entries 0010–0014 were migrated back from HA-Contract on 2026-11-07
+(source: HA-Contract@bab2a05); each file carries a provenance line.

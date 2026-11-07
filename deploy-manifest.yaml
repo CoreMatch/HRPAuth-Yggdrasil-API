@@ -1,0 +1,63 @@
+# HRPAuth-Yggdrasil-API 部署声明（deploy-manifest v1）
+# schema 依据：HA-Services-Deployer internal/manifest/（SchemaVersion=1）
+manifest_version: 1
+kind: service
+project: hrpauth-yggdrasil-api
+display_name: HRPAuth-Yggdrasil-API
+group: satellite
+# 模板 site.version / yggdrasil.server.version 均为 "1.0.0"（无 git 版本 tag）。
+service_version: "1.0.0"
+
+facts:
+  ports:
+    # deploy/config/hrpauth-yggdrasil-api.yaml.tmpl: server.port :2770；
+    # compose 默认对外映射（游戏客户端走 Yggdrasil 协议）。
+    - name: http
+      port: 2770
+      exposure: public
+  health:
+    # main.go r.GET("/health")；compose healthcheck 同路径
+    http:
+      port_name: http
+      path: /health
+      expect_status: 200
+      timeout_seconds: 5
+      interval_seconds: 30
+      retries: 3
+  depends_on:
+    # database/redis 段为启动硬依赖；core_api 指向 HRPAuth：
+    # 启动期凭据解析（main.go resolveCoreCredentials）+ FetchMetadata，
+    # compose depends_on hrpauth: service_healthy。
+    - project: mysql
+      kind: required
+    - project: redis
+      kind: required
+    - project: hrpauth
+      kind: required
+  migration:
+    # main.go EnsureMigrations（失败即 fatal）；配置启动期自动迁移（config/migrations.go）。
+    mode: auto_on_startup
+  data_dirs:
+    # 模板 yggdrasil.security.textures_storage: ./storage（布局 {textures,previews}，
+    # 与 haskinlib 共享同一份纹理存储，见 compose volumes.haskin-textures 注释）。
+    - ./storage
+  config:
+    # controllers/startup_controller.go ConfigFileName="config.yaml"；
+    # 模板版本 = 模板首行 version: "4"（代码 config.ConfigVersion 同为 "4"）。
+    - path: config.yaml
+      template_version: "4"
+  static_assets: ""
+
+baremetal:
+  process:
+    manager: aapanel
+  install:
+    # PROD-FILEREFRESH-20261107 §1：二进制在位路径 /www/wwwroot/hay/HAygg
+    root: /www/wwwroot/hay
+    binary_name: HAygg
+  artifact:
+    source: local_path
+    local_path: /home/lnb/Desktop/HA/HRPAuth-Yggdrasil-API/build/HAygg
+
+container:
+  enabled: false

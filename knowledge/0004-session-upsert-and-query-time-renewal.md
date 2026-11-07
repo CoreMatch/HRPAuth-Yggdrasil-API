@@ -10,7 +10,7 @@ broke long-lived players (skins/verification dropping while online). The session
 semantics were therefore tuned for "player stays connected" rather than "strict
 one-shot ticket", and the expiry must stay operator-tunable
 (`yggdrasil.security.session_expiry_seconds`, default 28800 = 8 h,
-`config.yaml:L53`).
+`config.yaml:L53-L53 ~ session_expiry_seconds: 28800`).
 
 ## Decision
 
@@ -18,26 +18,26 @@ Session semantics in `services/auth_service.go`:
 
 - **Join is an upsert keyed by (profile_id, server_id).** If a row for that pair
   exists, its `ip` and `expires_at` are updated in place; otherwise a new row is
-  inserted (`CreateSession`, `services/auth_service.go:L665-L689`).
+  inserted (`CreateSession`, `services/auth_service.go:L665-L689 ~ if result.Error != nil {`).
   A player on a given server therefore never accumulates more than one session
   row.
 - **hasJoined does not check `expires_at` at read time.** It looks the session up
   by (profile, server) and, on hit, force-renews `expires_at` to
   now + `session_expiry_seconds` before returning it
   (`GetSessionByProfileAndServer`,
-  `services/auth_service.go:L691-L710`). The HTTP handler itself also
+  `services/auth_service.go:L691-L710 ~ if err != nil {`). The HTTP handler itself also
   performs no expiry comparison
-  (`controllers/yggdrasil_controller.go:L395-L455`); a miss yields
+  (`controllers/yggdrasil_controller.go::HasJoined`); a miss yields
   `204` per the Yggdrasil convention
   [xref] (HA-Contract `docs/dev/HRPAuth/yggdrasil-api.md`).
 - **Expiry only matters for garbage collection**: a background job every 24 h
   deletes rows whose `expires_at` is more than 24 h in the past
-  (`CleanupExpiredSessions`, `services/auth_service.go:L712-L719`;
-  scheduled in `main.go:L116-L117`).
+  (`CleanupExpiredSessions`, `services/auth_service.go::RecordLoginAttempt`;
+  scheduled in `main.go::main`).
 - The optional IP binding check (`enable_ip_check`) is off by default
-  (`config.yaml:L41`) and, when enabled, compares the stored join IP
+  (`config.yaml:L41-L41 ~ enable_ip_check: false`) and, when enabled, compares the stored join IP
   with the `ip` query parameter
-  (`controllers/yggdrasil_controller.go:L420-L424`).
+  (`controllers/yggdrasil_controller.go::HasJoined`).
 
 ## Consequences
 
@@ -60,19 +60,19 @@ Session semantics in `services/auth_service.go`:
 
 All paths relative to this repository unless noted.
 
-- Upsert: `services/auth_service.go:L665-L689` (log fields
+- Upsert: `services/auth_service.go:L665-L689 ~ if result.Error != nil {` (log fields
   `mode=renew`/`mode=new`).
 - Read without expiry filter + forced renewal:
-  `services/auth_service.go:L691-L710`.
+  `services/auth_service.go:L691-L710 ~ if err != nil {`.
 - Handler performs no expiry comparison, returns 204 on miss:
-  `controllers/yggdrasil_controller.go:L406-L418`.
+  `controllers/yggdrasil_controller.go::HasJoined`.
 - Cleanup threshold (expired > 24 h) and schedule:
-  `services/auth_service.go:L712-L719`,
-  `main.go:L116-L117`.
-- Expiry setting and default: `config.yaml:L53`; default also in
-  `controllers/startup_controller.go:L128`.
-- IP check flag and default off: `config.yaml:L41`,
-  `controllers/yggdrasil_controller.go:L420-L424`.
+  `services/auth_service.go::RecordLoginAttempt`,
+  `main.go::main`.
+- Expiry setting and default: `config.yaml:L53-L53 ~ session_expiry_seconds: 28800`; default also in
+  `controllers/startup_controller.go::buildDefaultConfig`.
+- IP check flag and default off: `config.yaml:L41-L41 ~ enable_ip_check: false`,
+  `controllers/yggdrasil_controller.go::HasJoined`.
 - 204-on-failure convention: [xref] HA-Contract
   `docs/dev/HRPAuth/yggdrasil-api.md`, Sessionserver section — checked in this
   pass.

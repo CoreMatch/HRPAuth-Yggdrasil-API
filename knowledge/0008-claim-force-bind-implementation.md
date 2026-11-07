@@ -52,7 +52,7 @@ confirmed deprecated with no successor.
   (`accounts.cbh` defaults to 1) — proxy accounts would be indistinguishable
   from claimed ones and claim/force-bind could never match. cbh is therefore
   written explicitly after the insert
-  (`services/auth_service.go:L237-L241`; regression test in
+  (`services/auth_service.go::ProxyRegister`; regression test in
   `services/admin_service_test.go`). CBH itself stays an active concept
   (proxy-state marker).
 
@@ -60,18 +60,18 @@ confirmed deprecated with no successor.
 
 - The plugin's `/ha reg` and `/ha forcebind` chains run through the core relay
   under the `/yggdrasil-api` prefix; the relay rule set includes `/admin`
-  (`controllers/startup_controller.go:L693-L721`).
+  (`controllers/startup_controller.go::buildRelayRules`).
 - declare-email is closed: core scope `user.declare-email` removed, contract
   entry marked confirmed-deprecated.
 - The mojang-bind completion path of ADR-0006 lives in `ProxyRegister`
-  (`services/auth_service.go:L193-L219`): a colliding
+  (`services/auth_service.go::ProxyRegister`): a colliding
   `POST /internal/proxy-register` against an account with `mbe=1` binds the
   mojang_uuid, resets `mbe=0`, cancels the 15-minute revert and preserves
   cbh/password; `mbe=0` collisions return 409 `username_already_bound`.
 - force-bind authenticates with the `user.force-bind.as-service` scope; there
   is no separate admin credential in this service. The config schema version is
-  "4" (`config/config.go:L155-L156`); a leftover `manage` section in a config
-  file is ignored by the loader (`config/migrations.go:L27-L31`).
+  "4" (`config/config.go::ConfigVersion`); a leftover `manage` section in a config
+  file is ignored by the loader (`config/migrations.go:L27-L31 ~ Note: an earlier, since-reverted "4" added manag`).
 
 ## Evidence
 

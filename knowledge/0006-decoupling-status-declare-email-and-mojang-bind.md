@@ -35,7 +35,7 @@ points:
   against an account with `mbe=1` binds the incoming `mojang_uuid`, resets
   `mbe=0`, cancels the 15-minute revert and preserves cbh/password; `mbe=0`
   collisions return 409 `username_already_bound`
-  (`services/auth_service.go:L193-L219`; full semantics in ADR-0008).
+  (`services/auth_service.go::ProxyRegister`; full semantics in ADR-0008).
   `accounts.mbe` is written by the opt-in and consumed by this branch.
 
 **declare-email — deprecated with no successor (author decision).** No
@@ -61,7 +61,7 @@ fix and the claim/force-bind flows built on it are in ADR-0008.
 
 All paths relative to this repository unless noted.
 
-- Bind endpoints: `main.go:L174-L175` (routes),
+- Bind endpoints: `main.go::main` (routes),
   `controllers/player_controller.go::EnableMojangBind`,
   `controllers/player_controller.go::DisableMojangBind`,
   `services/player_service.go::EnableMojangBind`,
@@ -71,7 +71,7 @@ All paths relative to this repository unless noted.
 - 15-minute auto-revert: `services/mbe_timeout.go::MBETimeout`,
   `services/mbe_timeout.go::RunMBETimeoutSweep`,
   `controllers/mbe_timeout_controller.go::MBETimeoutCleanupController`.
-- Completion branch: `services/auth_service.go:L193-L219` (`ProxyRegister`
+- Completion branch: `services/auth_service.go::ProxyRegister` (`ProxyRegister`
   collision handling).
 - declare-email absence: ecosystem-wide grep (HASkinLib, HASkinProxy,
   HRPAuth-Spigot, BS2HA, HRPAuth-Web, deployer, SDKHandler) returns no

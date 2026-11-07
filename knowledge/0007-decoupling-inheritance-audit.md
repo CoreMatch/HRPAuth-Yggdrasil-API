@@ -19,14 +19,14 @@ feature.
 - `/texture/rewrite-callback` became read-time lazy rewriting
   (`services/texture_service.go::RewriteTexturesProperty`).
 - `/generate-key` became first-run automatic key generation
-  (`controllers/startup_controller.go:L147-L176`).
+  (`controllers/startup_controller.go::createDefaultConfig`).
 - Runtime SDK endpoints became the compile-time sdk-packages model
   (ADR-0003).
 - Core→ygg push sync became lazy pull: usernames are pulled on access
-  (`services/auth_service.go:L271-L301`), with one behavioral difference —
+  (`services/auth_service.go:L271-L301 ~ log.Printf("[YGG-SVC] user %s not found in core,`), with one behavioral difference —
   accounts of deleted core users are only cleaned here on next access.
 - Mojang-bind completion (username collision + `mbe=1` → bind) lives in
-  `ProxyRegister` (`services/auth_service.go:L193-L219`; ADR-0006, ADR-0008).
+  `ProxyRegister` (`services/auth_service.go::ProxyRegister`; ADR-0006, ADR-0008).
 
 **Resolved by author decision (ADR-0008):**
 
@@ -58,11 +58,11 @@ had replaced them).
 
 All paths relative to this repository unless noted.
 
-- Replacement surfaces: `main.go:L148-L217` (route registration),
+- Replacement surfaces: `main.go::main` (route registration),
   `services/mbe_timeout.go::MBETimeout`,
   `services/texture_service.go::RewriteTexturesProperty`,
-  `services/auth_service.go:L271-L301` (lazy pull incl. cleanup of deleted
-  core users), `services/auth_service.go:L193-L219` (mbe bind branch).
+  `services/auth_service.go:L271-L301 ~ log.Printf("[YGG-SVC] user %s not found in core,` (lazy pull incl. cleanup of deleted
+  core users), `services/auth_service.go::ProxyRegister` (mbe bind branch).
 - Live Spigot consumers of claim/force-bind: [xref] HRPAuth-Spigot `src/main/java/com/hrp/auth/proxy/RegisterCommand.java:74`, `ForceBindCommand.java:79`, registered in `HrpAuthProxy.java:53-54`.
 - Contract records: [xref] HA-Contract `yggdrasil-api.md` (§6 note
   :170-172, §Data Consistency), `hrpauth-yggdrasil-business.yaml`

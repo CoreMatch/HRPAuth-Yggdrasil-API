@@ -278,16 +278,6 @@ type CoreMetadata struct {
 	} `json:"site"`
 }
 
-func (c *CoreClient) GetMetadata() (*CoreMetadata, error) {
-	var meta CoreMetadata
-	// HRPAuth Core's root endpoint / provides metadata
-	err := c.doRequest("GET", "/", nil, &meta)
-	if err != nil {
-		return nil, err
-	}
-	return &meta, nil
-}
-
 // ErrSDKPackageConflict is returned when a package with the same name already exists (409).
 var ErrSDKPackageConflict = errors.New("sdk package conflict")
 

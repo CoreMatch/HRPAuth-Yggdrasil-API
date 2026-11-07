@@ -14,10 +14,10 @@ are easily misread; maintainers need a list of what they are.
 **Internal surface authentication.** `/internal/proxy-register` and
 `/internal/heartbeat` are guarded solely by an `X-Internal-Key` header compared
 against `config.AppConfig.Runtime.InternalKey`
-(`controllers/internal_controller.go:L23-L37`). The key is not
+(`controllers/internal_controller.go:L23-L37 ~ func (ic *InternalController) Heartbeat(c *gin.C`). The key is not
 configured by hand: it is fetched from the core's `POST /services/auth-key`
 during service registration
-(`controllers/startup_controller.go:L608-L633`). When the core is not
+(`controllers/startup_controller.go::FetchInternalKey`). When the core is not
 configured, the runtime key stays empty and the guard's `InternalKey == ""`
 branch makes both endpoints reject every request with 401 — internal endpoints
 are therefore inert in standalone mode, by construction.
@@ -34,11 +34,11 @@ are therefore inert in standalone mode, by construction.
    history and must be considered exposed; whether it was rotated is not
    verifiable from this repository — flagged for owner confirmation. The
    current signing key pair is generated locally at first run and is not in
-   the tree (`controllers/startup_controller.go:L147-L176`).
+   the tree (`controllers/startup_controller.go::createDefaultConfig`).
 3. **Migration versions above the highest embedded migration do not correspond
    to files in the current tree** (the migration set is squashed, see ADR-0002);
    `EnsureMigrations` clamps such databases to the highest embedded version
-   (`controllers/startup_controller.go:L453-L463`).
+   (`controllers/startup_controller.go::EnsureMigrations`).
 
 ## Consequences
 
@@ -54,14 +54,14 @@ are therefore inert in standalone mode, by construction.
 
 All paths relative to this repository unless noted.
 
-- Internal key guard: `controllers/internal_controller.go:L23-L37`;
-  routes registered in `main.go:L160-L161`.
-- Key fetch from core: `controllers/startup_controller.go:L608-L633`
+- Internal key guard: `controllers/internal_controller.go:L23-L37 ~ func (ic *InternalController) Heartbeat(c *gin.C`;
+  routes registered in `main.go::main`.
+- Key fetch from core: `controllers/startup_controller.go::FetchInternalKey`
   (`POST /services/auth-key`).
 - Secret removal from the working tree: commit `3517456` (deleted the committed
   key pair and the hardcoded deployment command from `build.sh`); both remain
   retrievable from history. Key-pair assessment: ADR-0009.
 - Runtime key generation at first run:
-  `controllers/startup_controller.go:L147-L176`.
-- Post-squash clamp: `controllers/startup_controller.go:L453-L463`;
+  `controllers/startup_controller.go::createDefaultConfig`.
+- Post-squash clamp: `controllers/startup_controller.go::EnsureMigrations`;
   commit `45000e9`.

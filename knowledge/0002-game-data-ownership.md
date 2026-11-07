@@ -34,20 +34,20 @@ Key points:
 - **`accounts` is the bridge table introduced by the split.** It maps
   `core_user_id` (the core's `users.uuid`) 1:1 to a game account and carries the
   Mojang-binding and proxy/bot flags (`mbe`, `cbh`)
-  (`database/migrations/000001_init.up.sql:L1-L14`,
-  `models/models.go:L63-L79`).
+  (`database/migrations/000001_init.up.sql:L1-L14 ~ CREATE TABLE IF NOT EXISTS `accounts` (`,
+  `models/models.go:L63-L79 ~ Account represents a Minecraft account linked to`).
 - **`profile_keys` changed its key during the move**: in the core it was keyed by
   `user_id varchar(32)` referencing `users(uuid)`; here it is keyed by
   `account_id int` referencing `accounts(id)`
-  (`database/migrations/000001_init.up.sql:L74-L88`). Chat-signing
+  (`database/migrations/000001_init.up.sql:L74-L88 ~ CREATE TABLE IF NOT EXISTS `profile_keys` (`). Chat-signing
   keys therefore attach to the game account, not directly to the core user.
 - **Table prefixing is applied to migration SQL by string replacement** at startup
-  (`controllers/startup_controller.go:L357-L381`); GORM model table
-  names use the same prefix (`models/models.go:L23-L25` etc.).
+  (`controllers/startup_controller.go::wrapReader`); GORM model table
+  names use the same prefix (`models/models.go::TableName` etc.).
 - The migration set is a single **squashed** `000001_init` baseline (commit
   `fa788be`); databases that still carry a higher pre-squash version number are
   clamped to the highest embedded version by `EnsureMigrations`
-  (`controllers/startup_controller.go:L453-L463`, fix commit `45000e9`).
+  (`controllers/startup_controller.go::EnsureMigrations`, fix commit `45000e9`).
 
 ## Consequences
 
@@ -55,8 +55,8 @@ Key points:
   table prefixes distinct (core uses unprefixed names; this service defaults to
   `haygg_`).
 - The "Moved from core" comments in `models/models.go` exist only on `Token`,
-  `Session` and `ProfileKey` (`models/models.go:L10`,
-  `models/models.go:L28`, `models/models.go:L44`).
+  `Session` and `ProfileKey` (`models/models.go:L10-L10 ~ Moved from core to Yggdrasil API provider.`,
+  `models/models.go:L28-L28 ~ Moved from core to Yggdrasil API provider.`, `models/models.go:L44-L44 ~ Moved from core to Yggdrasil API provider.`).
   `Profile` and `ProfileProperty` were moved too but carry no such comment —
   do not read the missing comment as "always lived here".
 - There is no data-migration tooling from the old core tables to these tables in
@@ -65,15 +65,15 @@ Key points:
 - Cost of the bridge design: every core-user → game lookup goes through
   `accounts.core_user_id`, and deleting a core user requires this service to clean
   up its side (see the cascade-delete handling in
-  `services/auth_service.go:L341-L353`).
+  `services/auth_service.go::CleanupInactiveBotUsers`).
 
 ## Evidence
 
 All paths relative to this repository unless noted.
 
-- Six tables and their DDL: `database/migrations/000001_init.up.sql:L1-L88`.
-- Default table prefix `haygg_`: `config.yaml:L12`; default config
-  builder `controllers/startup_controller.go:L94`.
+- Six tables and their DDL: `database/migrations/000001_init.up.sql:L1-L88 ~ CREATE TABLE IF NOT EXISTS `accounts` (`.
+- Default table prefix `haygg_`: `config.yaml:L12-L12 ~ table_prefix: haygg_`; default config
+  builder `controllers/startup_controller.go::buildDefaultConfig`.
 - Pre-split core baseline (profiles/profile_properties/sessions/tokens): [xref]
   HRPAuth repository, git blob `80bd9cbb`
   (`git show 9ab4e64^:database/migrations/000001_baseline.up.sql`),
@@ -82,8 +82,8 @@ All paths relative to this repository unless noted.
   HRPAuth `git show 9ab4e64^:database/migrations/000004_profile_keys.up.sql`.
 - Post-split core has no game tables: [xref] HRPAuth
   `database/migrations/000001_baseline.up.sql` (checked in this pass).
-- "Moved from core" comments: `models/models.go:L10`,
-  `models/models.go:L28`, `models/models.go:L44`.
-- Prefix string replacement: `controllers/startup_controller.go:L357-L381`.
+- "Moved from core" comments: `models/models.go:L10-L10 ~ Moved from core to Yggdrasil API provider.`,
+  `models/models.go:L28-L28 ~ Moved from core to Yggdrasil API provider.`, `models/models.go:L44-L44 ~ Moved from core to Yggdrasil API provider.`.
+- Prefix string replacement: `controllers/startup_controller.go::wrapReader`.
 - Squash and post-squash clamp: commits `fa788be`, `45000e9`;
-  `controllers/startup_controller.go:L453-L463`.
+  `controllers/startup_controller.go::EnsureMigrations`.

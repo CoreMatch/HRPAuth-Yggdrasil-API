@@ -14,7 +14,7 @@ are easily misread; maintainers need a list of what they are.
 **Internal surface authentication.** `/internal/proxy-register` and
 `/internal/heartbeat` are guarded solely by an `X-Internal-Key` header compared
 against `config.AppConfig.Runtime.InternalKey`
-(`controllers/internal_controller.go:L23-L37 ~ func (ic *InternalController) Heartbeat(c *gin.C`). The key is not
+(`controllers/internal_controller.go:L23-L37 fp=2e14d138 ~ func (ic *InternalController) Heartbeat(c *gin.C`). The key is not
 configured by hand: it is fetched from the core's `POST /services/auth-key`
 during service registration
 (`controllers/startup_controller.go::FetchInternalKey`). When the core is not
@@ -54,7 +54,7 @@ are therefore inert in standalone mode, by construction.
 
 All paths relative to this repository unless noted.
 
-- Internal key guard: `controllers/internal_controller.go:L23-L37 ~ func (ic *InternalController) Heartbeat(c *gin.C`;
+- Internal key guard: `controllers/internal_controller.go:L23-L37 fp=2e14d138 ~ func (ic *InternalController) Heartbeat(c *gin.C`;
   routes registered in `main.go::main`.
 - Key fetch from core: `controllers/startup_controller.go::FetchInternalKey`
   (`POST /services/auth-key`).

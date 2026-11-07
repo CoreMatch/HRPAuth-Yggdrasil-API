@@ -25,11 +25,11 @@ ecosystem, and the core stays the sole owner of general identity:
   WebAuthn credentials, deleted accounts. This service verifies user credentials by
   calling the core's `POST /internal/verify-credentials` and verifies core-issued
   bearer tokens via `POST /internal/verify-token`
-  (`clients/core_client.go:L105-L134 ~ func (c *CoreClient) VerifyCredentials(identifie`).
+  (`clients/core_client.go:L105-L134 fp=b8696ecd ~ func (c *CoreClient) VerifyCredentials(identifie`).
 - **HA-Contract** (sibling repository `CoreMatch/HA-Contract`): all outward behavior
   definitions. This repository keeps no API documentation of its own; the README
   points to HA-Contract for the protocol surface and the business OpenAPI
-  (`README.md:L68-L77 ~ API reference`).
+  (`README.md:L68-L77 fp=45dc8bc8 ~ API reference`).
 - **WebUI** (`CoreMatch/HRPAuth-WebUI`): consumes this service only through the
   core's relay under the `/yggdrasil-api` path prefix, plus the SDK package this
   service uploads (see ADR-0003).
@@ -39,8 +39,8 @@ ecosystem, and the core stays the sole owner of general identity:
 - The service is useless for regular user authentication without a reachable core:
   with `core_api` unconfigured only internally registered proxy accounts can log in
   (see ADR-0003). The README states this explicitly as a deployment prerequisite
-  (`README.md:L12-L12 ~ - A running [HRPAuth](https://github.com/CoreMat`).
-- The 1:1 link between a core user and the game domain is the `accounts.core_user_id`
+  (`README.md:L12-L12 fp=c127e8b0 ~ - A running [HRPAuth](https://github.com/CoreMat`).
+- The 1:1 fp=0c1614d3 link between a core user and the game domain is the `accounts.core_user_id`
   column in this service's database (see ADR-0002); the core holds no game tables
   anymore. Verified against the core's post-split baseline migration, which contains
   only `users`, `oauth2_*`, `deleted_accounts`, `webauthn_credentials`
@@ -61,12 +61,12 @@ All paths relative to this repository unless noted.
 - Core retains only general-identity tables: HRPAuth
   `database/migrations/000001_baseline.up.sql` (`CREATE TABLE` lines 1, 26,
   44, 64, 86, 106, 112) and `models/models.go:L7-L126 ~ )` [xref].
-- Credential verification delegation: `clients/core_client.go:L105-L134 ~ func (c *CoreClient) VerifyCredentials(identifie`
+- Credential verification delegation: `clients/core_client.go:L105-L134 fp=b8696ecd ~ func (c *CoreClient) VerifyCredentials(identifie`
   (`/internal/verify-credentials`, `/internal/verify-token`).
 - Owns the Yggdrasil protocol surface: route registration in
   `main.go::main` (authserver, sessionserver, textures,
   minecraftservices, player, register).
-- Contract pointers in README: `README.md:L68-L77 ~ API reference`.
+- Contract pointers in README: `README.md:L68-L77 fp=45dc8bc8 ~ API reference`.
 - Ecosystem positioning of the relay/presence mechanism: [xref] HA-Contract
   `docs/dev/HRPAuth/microservices.md` ("Design Positioning" section) — checked
   in this pass.

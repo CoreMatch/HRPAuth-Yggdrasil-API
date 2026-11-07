@@ -23,7 +23,7 @@ feature.
 - Runtime SDK endpoints became the compile-time sdk-packages model
   (ADR-0003).
 - Core→ygg push sync became lazy pull: usernames are pulled on access
-  (`services/auth_service.go:L271-L301 ~ log.Printf("[YGG-SVC] user %s not found in core,`), with one behavioral difference —
+  (`services/auth_service.go:L271-L301 fp=dc0eb9be ~ log.Printf("[YGG-SVC] user %s not found in core,`), with one behavioral difference —
   accounts of deleted core users are only cleaned here on next access.
 - Mojang-bind completion (username collision + `mbe=1` → bind) lives in
   `ProxyRegister` (`services/auth_service.go::ProxyRegister`; ADR-0006, ADR-0008).
@@ -61,7 +61,7 @@ All paths relative to this repository unless noted.
 - Replacement surfaces: `main.go::main` (route registration),
   `services/mbe_timeout.go::MBETimeout`,
   `services/texture_service.go::RewriteTexturesProperty`,
-  `services/auth_service.go:L271-L301 ~ log.Printf("[YGG-SVC] user %s not found in core,` (lazy pull incl. cleanup of deleted
+  `services/auth_service.go:L271-L301 fp=dc0eb9be ~ log.Printf("[YGG-SVC] user %s not found in core,` (lazy pull incl. cleanup of deleted
   core users), `services/auth_service.go::ProxyRegister` (mbe bind branch).
 - Live Spigot consumers of claim/force-bind: [xref] HRPAuth-Spigot `src/main/java/com/hrp/auth/proxy/RegisterCommand.java:74`, `ForceBindCommand.java:79`, registered in `HrpAuthProxy.java:53-54`.
 - Contract records: [xref] HA-Contract `yggdrasil-api.md` (§6 note

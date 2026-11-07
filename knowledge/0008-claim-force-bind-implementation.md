@@ -71,7 +71,7 @@ confirmed deprecated with no successor.
 - force-bind authenticates with the `user.force-bind.as-service` scope; there
   is no separate admin credential in this service. The config schema version is
   "4" (`config/config.go::ConfigVersion`); a leftover `manage` section in a config
-  file is ignored by the loader (`config/migrations.go:L27-L31 ~ Note: an earlier, since-reverted "4" added manag`).
+  file is ignored by the loader (`config/migrations.go:L27-L31 fp=87baf16b ~ Note: an earlier, since-reverted "4" added manag`).
 
 ## Evidence
 

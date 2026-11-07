@@ -201,7 +201,7 @@ Creates a game-specific account and default profile for an existing core user.
 - **Body**: `{ "identifier": "<email or username>", "password": "<password>", "mojang_uuid": "<optional>" }`.
 - **Logic**:
     1. Verifies credentials against the HRPAuth core service.
-    2. Checks if a game account already exists for the user (1:1 mapping).
+    2. Checks if a game account already exists for the user (1:1 fp=0c1614d3 mapping).
     3. Inherits the `username` from the core service for the default profile.
     4. Binds `mojang_uuid` if provided and valid.
 

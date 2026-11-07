@@ -24,6 +24,19 @@ facts:
       timeout_seconds: 5
       interval_seconds: 30
       retries: 3
+  smoke:
+    # 部署后冒烟：profile 查询链路真的活着。用全零 UUID 查一个
+    # 必然不存在的档案——查询走到数据库并正确返回 404
+    # ProfileNotFoundException（controllers/yggdrasil_controller.go
+    # ProfileQuery；knowledge/0010），无需真实玩家数据与凭据。
+    # 断言的是"确定性的正确响应"，不是再查一次活没活着。
+    - name: profile-query-miss
+      method: GET
+      path: /sessionserver/session/minecraft/profile/00000000-0000-0000-0000-000000000000
+      expect_status: 404
+      timeout_seconds: 10
+      assert:
+        contains: ProfileNotFoundException
   depends_on:
     # database/redis 段为启动硬依赖；core_api 指向 HRPAuth：
     # 启动期凭据解析（main.go resolveCoreCredentials）+ FetchMetadata，

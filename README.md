@@ -9,7 +9,7 @@ HRPAuth-Yggdrasil-API is a Yggdrasil-compatible Minecraft authentication service
 - Go 1.26.4+ (to build from source) or Docker
 - MySQL — create the database and user first; tables are created automatically on startup
 - Redis
-- A running [HRPAuth](https://github.com/CoreMatch/HRPAuth) core — optional at startup, but required for regular user authentication and WebUI integration. Without it, only internally registered proxy accounts can authenticate.
+- A running [HRPAuth](https://github.com/CoreMatch/HRPAuth) core — required at startup whenever `core_api` credentials are configured (startup credential resolution aborts on any failure; production configs always set credentials), and required at runtime for regular user authentication and WebUI integration. Only with `core_api` credentials left empty can the service start without a core, and then only internally registered proxy accounts can authenticate.
 
 ## Quick Start (binary)
 
@@ -75,6 +75,19 @@ The API contract is maintained in [HA-Contract](https://github.com/CoreMatch/HA-
 ## WebUI SDK
 
 This repository embeds a WebUI SDK package that is uploaded to the HRPAuth core when the service starts. For the SDK package format and mounting contract, see [`docs/dev/HRPAuth/sdk-package.md`](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/sdk-package.md).
+
+## Deployment facts
+
+Authoritative deployment facts live in [`deploy-manifest.yaml`](deploy-manifest.yaml)
+at the repo root (consumed by HA-Services-Deployer's orchestrator;
+`manager: aapanel` means the process is panel-managed and the orchestrator
+treats it as read-only):
+
+- Listens on `:2770` (public); health probe `GET /health`.
+- Depends on MySQL, Redis and the HRPAuth core (see Prerequisites).
+- Config file `config.yaml` (template version 4); database migrations run
+  automatically on startup.
+- Data dir: `./storage` (textures/previews; shared storage with HASkinLib).
 
 ## License
 

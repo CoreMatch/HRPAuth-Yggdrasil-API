@@ -69,11 +69,11 @@ Core integration is **switched on solely by filling `core_api.client_id` /
   3. `FetchInternalKey()` — obtains the runtime `X-Internal-Key` used by the
      `/internal/*` endpoints (ADR-0005).
 - **SDK package upload on every start**: the embedded `sdk/` tree (Go `embed`,
-  `main.go:L18-L24 ~ )`) is packed as `<name>-sdk.tar.gz` and POSTed to
+  `main.go:L18-L24 fp=558bf639 ~ )`) is packed as `<name>-sdk.tar.gz` and POSTed to
   `/services/sdk-packages`. On HTTP 409 (package name already exists) the old
   package is DELETEd and the upload retried exactly once
   (`controllers/sdk_upload.go::UploadSDKPackage`,
-  `clients/core_client.go:L312-L341 ~ if resp.StatusCode == http.StatusConflict {`).
+  `clients/core_client.go:L312-L341 fp=e526234b ~ if resp.StatusCode == http.StatusConflict {`).
   `manifest.json` profile-card priorities are patched from
   `microservice.profile_cards` config before packing
   (`controllers/sdk_upload.go::patchManifest`).
@@ -88,11 +88,11 @@ Core integration is **switched on solely by filling `core_api.client_id` /
   RSA key pair, `controllers/startup_controller.go::createDefaultConfig`) with
   empty `core_api` credentials; the operator must fill them and restart to join
   the ecosystem. This is the documented deployment path
-  (`README.md:L49-L62 ~ Configuration (required fields)`).
+  (`README.md:L49-L62 fp=81b3a0d6 ~ Configuration (required fields)`).
 - Because registration failures are warnings, a misconfigured production service
   "runs" but is invisible to the core relay — the game client reachability breaks
   silently until logs are read. Presence TTL is 120 s
-  (`config.yaml:L21-L21 ~ ttl_seconds: 120`), so a dead registration also expires out of the
+  (`config.yaml:L21-L21 fp=056fcdcc ~ ttl_seconds: 120`), so a dead registration also expires out of the
   core's view.
 - The 409→delete→re-upload policy means **every restart of this service replaces
   the core's stored SDK package** with the build-embedded one. This keeps the
@@ -128,14 +128,14 @@ All paths relative to this repository unless noted.
   `controllers/startup_controller.go::buildRelayRules`;
   `config/config.go::DefaultRelayPathPrefix` (`DefaultRelayPathPrefix = "/yggdrasil-api"`).
 - Internal key fetch: `controllers/startup_controller.go::FetchInternalKey`.
-- SDK embed and upload trigger: `main.go:L18-L24 ~ )`,
+- SDK embed and upload trigger: `main.go:L18-L24 fp=558bf639 ~ )`,
   `main.go::main`.
 - 409 conflict → delete → single retry:
   `controllers/sdk_upload.go::UploadSDKPackage`,
   `clients/core_client.go::UploadSDKPackage` (conflict mapping),
   `clients/core_client.go::DeleteSDKPackage` (delete).
 - Manifest priority patching: `controllers/sdk_upload.go::patchManifest`;
-  priorities config `config.yaml:L16-L18 ~ profile_cards:`.
+  priorities config `config.yaml:L16-L18 fp=7c6d9913 ~ profile_cards:`.
 - Proxy-first credential verification:
   `services/auth_service.go::VerifyCredentials`.
 - SDK package format and broker role of the core: [xref] HA-Contract

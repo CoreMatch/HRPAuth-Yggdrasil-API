@@ -9,7 +9,7 @@ monolith that the author intended to decouple into this service:
 `POST /user/declare-email` (service-token endpoint writing a user's email, with
 uniqueness check) and `POST /user/mojang-bind-enable` (the `mbe` opt-in that
 lets a colliding Mojang player bind to an existing username). The author's
-success criterion for the move: endpoints need not be replicated 1:1 — the
+success criterion for the move: endpoints need not be replicated 1:1 fp=0c1614d3 — the
 functional logic and outward behavior must have moved. This entry records where
 each capability stands now.
 

@@ -20,6 +20,8 @@ import (
 func setupPlayerTestDB(t *testing.T) {
 	t.Helper()
 	resetMBEPendingForTest()
+	// Bind paths now schedule skin syncs; keep them out of unrelated tests.
+	t.Cleanup(OverrideSkinSyncDispatchForTest(func(int, string, func()) {}))
 	if config.AppConfig == nil {
 		config.AppConfig = &config.Config{}
 	}
@@ -35,6 +37,8 @@ func setupPlayerTestDB(t *testing.T) {
 			password varchar(255),
 			mbe BOOLEAN NOT NULL DEFAULT 0,
 			cbh BOOLEAN NOT NULL DEFAULT 1,
+			skin_sync BOOLEAN NOT NULL DEFAULT 1,
+			skin_sync_mark varchar(128),
 			last_sign_at datetime,
 			created_at datetime,
 			updated_at datetime

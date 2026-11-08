@@ -55,7 +55,10 @@
     "name": "名称",
     "uuid": "UUID",
     "capeAvailable": "有披风",
-    "noSkinData": "暂无皮肤数据"
+    "noSkinData": "暂无皮肤数据",
+    "skinSyncTitle": "正版皮肤自动同步",
+    "skinSyncSubtitleOn": "绑定正版账号后，自动把官方皮肤同步到本服；同步失败不影响绑定，下次登录自动重试",
+    "skinSyncSubtitleOff": "已关闭：绑定或登录都不会改动你的皮肤，重新开启后会再次同步官方皮肤"
   },
   "profileCreation": {
     "title": "创建游戏 Profile",

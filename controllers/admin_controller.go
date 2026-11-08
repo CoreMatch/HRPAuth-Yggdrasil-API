@@ -204,7 +204,8 @@ func (ac *AdminController) ForceBind(c *gin.Context) {
 		return
 	}
 
-	if err := ac.adminSvc.ForceBindTransfer(source.ID, targetUser.UUID, mojangUUID); err != nil {
+	targetAccountID, err := ac.adminSvc.ForceBindTransfer(source.ID, targetUser.UUID, mojangUUID)
+	if err != nil {
 		if errors.Is(err, services.ErrMojangUUIDAlreadyBound) {
 			respondError(c, http.StatusConflict, CodeMojangUUIDAlreadyBound, "target account already bound to another mojang_uuid")
 			return
@@ -214,7 +215,7 @@ func (ac *AdminController) ForceBind(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[YGG-BIZ] request_id=%s action=force_bind username=%s mojang_uuid=%s target_core_user=%s result=success status=%d", c.GetString("request_id"), username, mojangUUID, targetUser.UUID, http.StatusOK)
+	log.Printf("[YGG-BIZ] request_id=%s action=force_bind username=%s mojang_uuid=%s target_core_user=%s target_account=%d result=success status=%d", c.GetString("request_id"), username, mojangUUID, targetUser.UUID, targetAccountID, http.StatusOK)
 	respondOK(c, "Force bind successful", gin.H{
 		"mojang_uuid": mojangUUID,
 	})

@@ -52,6 +52,7 @@ Each entry is one page in ADR style:
 | [0012](0012-legacy-skin-api.md) | Legacy Skin API (GET /skins/MinecraftSkins/{username}.png) | accepted |
 | [0013](0013-profile-keys.md) | Profile Keys (Minecraft 1.19+ Chat Signing) | accepted |
 | [0014](0014-interaction-contract.md) | External Interaction Contract | accepted |
+| [0015](0015-mojang-skin-sync.md) | Official Skin Auto-Sync After Mojang Bind | accepted |
 
 Entries 0010–0014 were migrated back from HA-Contract on 2026-11-07
 (source: HA-Contract@bab2a05); each file carries a provenance line.

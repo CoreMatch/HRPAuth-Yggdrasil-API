@@ -171,6 +171,9 @@ func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID stri
 		return nil, nil, err
 	}
 
+	if mUUIDPtr != nil {
+		NewSkinSyncService().RequestSkinSync(account.ID, "register")
+	}
 	return &account, &profile, nil
 }
 
@@ -186,6 +189,9 @@ func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*mo
 		// Idempotent: return existing
 		var profile models.Profile
 		database.DB.Where("account_id = ?", account.ID).First(&profile)
+		// A repeated proxy registration of an already-bound player is the
+		// natural retry point for a skin sync that failed the first time.
+		NewSkinSyncService().RequestSkinSync(account.ID, "proxy_register")
 		return &account, &profile, nil
 	}
 
@@ -213,6 +219,7 @@ func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*mo
 			// cbh, password, core_user_id and the profile are preserved; the
 			// supplied password is discarded (the account keeps its own
 			// credentials).
+			NewSkinSyncService().RequestSkinSync(existingAccount.ID, "proxy_register_mbe_bind")
 			return &existingAccount, &existingProfile, nil
 		}
 		return nil, nil, ErrUsernameAlreadyBound
@@ -252,6 +259,9 @@ func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*mo
 		return nil
 	})
 
+	if err == nil {
+		NewSkinSyncService().RequestSkinSync(account.ID, "proxy_register")
+	}
 	return &account, &profile, err
 }
 

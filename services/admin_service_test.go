@@ -20,6 +20,8 @@ import (
 func setupAdminTestDB(t *testing.T) {
 	t.Helper()
 	resetMBEPendingForTest()
+	// Bind paths now schedule skin syncs; keep them out of unrelated tests.
+	t.Cleanup(OverrideSkinSyncDispatchForTest(func(int, string, func()) {}))
 	if config.AppConfig == nil {
 		config.AppConfig = &config.Config{}
 	}
@@ -38,6 +40,8 @@ func setupAdminTestDB(t *testing.T) {
 			password varchar(255),
 			mbe BOOLEAN NOT NULL DEFAULT 0,
 			cbh BOOLEAN NOT NULL DEFAULT 1,
+			skin_sync BOOLEAN NOT NULL DEFAULT 1,
+			skin_sync_mark varchar(128),
 			last_sign_at datetime,
 			created_at datetime,
 			updated_at datetime
@@ -145,7 +149,7 @@ func TestForceBindTransferMovesUUIDAndDeletesSource(t *testing.T) {
 	svc := NewAdminService()
 	source := seedProxyAccount(t, "mojangplayer", "f7c77d999f154a66a87dc4a51ef30d19")
 
-	if err := svc.ForceBindTransfer(source.ID, "target-core-uuid", "f7c77d999f154a66a87dc4a51ef30d19"); err != nil {
+	if _, err := svc.ForceBindTransfer(source.ID, "target-core-uuid", "f7c77d999f154a66a87dc4a51ef30d19"); err != nil {
 		t.Fatalf("force bind: %v", err)
 	}
 
@@ -177,7 +181,7 @@ func TestForceBindTransferRejectsConflictingTargetUUID(t *testing.T) {
 		t.Fatalf("seed target: %v", err)
 	}
 
-	err := svc.ForceBindTransfer(source.ID, "target-core-uuid", "f7c77d999f154a66a87dc4a51ef30d19")
+	_, err := svc.ForceBindTransfer(source.ID, "target-core-uuid", "f7c77d999f154a66a87dc4a51ef30d19")
 	if !errors.Is(err, ErrMojangUUIDAlreadyBound) {
 		t.Fatalf("err = %v, want ErrMojangUUIDAlreadyBound", err)
 	}

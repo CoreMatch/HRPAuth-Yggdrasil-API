@@ -18,14 +18,14 @@ Session semantics in `services/auth_service.go`:
 
 - **Join is an upsert keyed by (profile_id, server_id).** If a row for that pair
   exists, its `ip` and `expires_at` are updated in place; otherwise a new row is
-  inserted (`CreateSession`, `services/auth_service.go:L665-L689 fp=c40fe38d ~ if result.Error != nil {`).
+  inserted (`CreateSession`, `services/auth_service.go::CreateSession`).
   A player on a given server therefore never accumulates more than one session
   row.
 - **hasJoined does not check `expires_at` at read time.** It looks the session up
   by (profile, server) and, on hit, force-renews `expires_at` to
   now + `session_expiry_seconds` before returning it
   (`GetSessionByProfileAndServer`,
-  `services/auth_service.go:L691-L710 fp=d6140118 ~ if err != nil {`). The HTTP handler itself also
+  `services/auth_service.go::GetSessionByProfileAndServer`). The HTTP handler itself also
   performs no expiry comparison
   (`controllers/yggdrasil_controller.go::HasJoined`); a miss yields
   `204` per the Yggdrasil convention
@@ -60,10 +60,10 @@ Session semantics in `services/auth_service.go`:
 
 All paths relative to this repository unless noted.
 
-- Upsert: `services/auth_service.go:L665-L689 fp=c40fe38d ~ if result.Error != nil {` (log fields
+- Upsert: `services/auth_service.go::CreateSession` (log fields
   `mode=renew`/`mode=new`).
 - Read without expiry filter + forced renewal:
-  `services/auth_service.go:L691-L710 fp=d6140118 ~ if err != nil {`.
+  `services/auth_service.go::GetSessionByProfileAndServer`.
 - Handler performs no expiry comparison, returns 204 on miss:
   `controllers/yggdrasil_controller.go::HasJoined`.
 - Cleanup threshold (expired > 24 h) and schedule:

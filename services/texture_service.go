@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -372,48 +373,67 @@ func (ts *TextureService) RemoveProfileTexture(profileID, textureType string) er
 	defer unlock()
 
 	return database.DB.Transaction(func(tx *gorm.DB) error {
-		var existingProp models.ProfileProperty
-		if err := tx.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").First(&existingProp).Error; err != nil {
-			return fmt.Errorf("textures property not found: %w", err)
-		}
-		decoded, err := base64.StdEncoding.DecodeString(existingProp.Value)
+		removed, err := ts.removeProfileTextureTx(tx, profileID, textureType)
 		if err != nil {
-			return fmt.Errorf("failed to decode textures property: %w", err)
+			return err
 		}
-		var payload models.TexturePayload
-		if err := json.Unmarshal(decoded, &payload); err != nil {
-			return fmt.Errorf("failed to unmarshal textures payload: %w", err)
-		}
-		key := strings.ToUpper(textureType)
-		if _, ok := payload.Textures[key]; !ok {
+		if !removed {
 			return fmt.Errorf("texture not found")
 		}
-		tombstoneValue := ts.createTombstoneValue(&existingProp, textureType)
-		delete(payload.Textures, key)
-		deleteWhen := time.Now().Unix() + 7*86400
-		if len(payload.Textures) == 0 {
-			return tx.Model(&existingProp).Updates(map[string]interface{}{
-				"value": tombstoneValue, "signature": "", "delete_when": deleteWhen,
-			}).Error
-		}
-		newData, err := json.Marshal(payload)
-		if err != nil {
-			return err
-		}
-		newValue := base64.StdEncoding.EncodeToString(newData)
-		signature, err := ts.SignTextureValue(newValue)
-		if err != nil {
-			return err
-		}
-		if err := tx.Model(&existingProp).Updates(map[string]interface{}{
-			"value": newValue, "signature": signature,
-		}).Error; err != nil {
-			return err
-		}
-		return tx.Create(&models.ProfileProperty{
-			ProfileID: profileID, Name: "textures", Value: tombstoneValue, DeleteWhen: deleteWhen,
-		}).Error
+		return nil
 	})
+}
+
+// removeProfileTextureTx is the transactional core of RemoveProfileTexture,
+// callable from flows that already hold the texture-storage lock. It
+// returns whether an active binding of that type existed (and was removed);
+// a profile without the texture is not an error.
+func (ts *TextureService) removeProfileTextureTx(tx *gorm.DB, profileID, textureType string) (bool, error) {
+	var existingProp models.ProfileProperty
+	if err := tx.Where("profile_id = ? AND name = ? AND delete_when = 0", profileID, "textures").First(&existingProp).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("textures property not found: %w", err)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(existingProp.Value)
+	if err != nil {
+		return false, fmt.Errorf("failed to decode textures property: %w", err)
+	}
+	var payload models.TexturePayload
+	if err := json.Unmarshal(decoded, &payload); err != nil {
+		return false, fmt.Errorf("failed to unmarshal textures payload: %w", err)
+	}
+	key := strings.ToUpper(textureType)
+	if _, ok := payload.Textures[key]; !ok {
+		return false, nil
+	}
+	tombstoneValue := ts.createTombstoneValue(&existingProp, textureType)
+	delete(payload.Textures, key)
+	deleteWhen := time.Now().Unix() + 7*86400
+	if len(payload.Textures) == 0 {
+		err := tx.Model(&existingProp).Updates(map[string]interface{}{
+			"value": tombstoneValue, "signature": "", "delete_when": deleteWhen,
+		}).Error
+		return true, err
+	}
+	newData, err := json.Marshal(payload)
+	if err != nil {
+		return false, err
+	}
+	newValue := base64.StdEncoding.EncodeToString(newData)
+	signature, err := ts.SignTextureValue(newValue)
+	if err != nil {
+		return false, err
+	}
+	if err := tx.Model(&existingProp).Updates(map[string]interface{}{
+		"value": newValue, "signature": signature,
+	}).Error; err != nil {
+		return false, err
+	}
+	return true, tx.Create(&models.ProfileProperty{
+		ProfileID: profileID, Name: "textures", Value: tombstoneValue, DeleteWhen: deleteWhen,
+	}).Error
 }
 
 func (ts *TextureService) createTombstoneValue(prop *models.ProfileProperty, textureType string) string {

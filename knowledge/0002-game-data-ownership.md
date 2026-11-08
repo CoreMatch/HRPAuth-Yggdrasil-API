@@ -33,9 +33,11 @@ Key points:
   only here.
 - **`accounts` is the bridge table introduced by the split.** It maps
   `core_user_id` (the core's `users.uuid`) 1:1 fp=0c1614d3 to a game account and carries the
-  Mojang-binding and proxy/bot flags (`mbe`, `cbh`)
+  Mojang-binding and proxy/bot flags (`mbe`, `cbh`) plus the official skin
+  sync state (`skin_sync`, `skin_sync_mark`, ADR-0015,
+  `database/migrations/000002_account_skin_sync.up.sql`)
   (`database/migrations/000001_init.up.sql:L1-L14 fp=f81da341 ~ CREATE TABLE IF NOT EXISTS `accounts` (`,
-  `models/models.go:L63-L79 fp=fd433363 ~ Account represents a Minecraft account linked to`).
+  `models/models.go::Account`).
 - **`profile_keys` changed its key during the move**: in the core it was keyed by
   `user_id varchar(32)` referencing `users(uuid)`; here it is keyed by
   `account_id int` referencing `accounts(id)`

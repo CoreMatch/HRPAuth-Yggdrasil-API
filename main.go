@@ -179,6 +179,8 @@ func main() {
 		player.POST("/profile", playerCtrl.CreateGameProfile)
 		player.POST("/mojang-bind-enable", playerCtrl.EnableMojangBind)
 		player.POST("/mojang-bind-disable", playerCtrl.DisableMojangBind)
+		player.POST("/skin-sync-enable", playerCtrl.EnableSkinSync)
+		player.POST("/skin-sync-disable", playerCtrl.DisableSkinSync)
 	}
 
 	r.GET("/mojang/profile/:uuid", playerCtrl.Profile)

@@ -10,6 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
+	"github.com/lnb/HRPAuth-Yggdrasil-API/database"
+	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/services"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/utils"
 )
@@ -17,12 +19,14 @@ import (
 type YggdrasilController struct {
 	authService    *services.AuthService
 	textureService *services.TextureService
+	skinSync       *services.SkinSyncService
 }
 
 func NewYggdrasilController() *YggdrasilController {
 	return &YggdrasilController{
 		authService:    services.NewAuthService(),
 		textureService: services.NewTextureService(),
+		skinSync:       services.NewSkinSyncService(),
 	}
 }
 
@@ -178,6 +182,10 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 
 	yc.authService.RecordLoginAttempt(req.Username, true)
 
+	// Best-effort retry of a failed or missed official skin sync; the
+	// steady-state cost is one primary-key read plus a mark comparison.
+	yc.skinSyncRetryOnLogin(user.AccountID)
+
 	profiles := yc.authService.GetUserProfiles(user.AccountID)
 	if len(profiles) == 0 {
 		log.Printf("[YGG-BIZ] request_id=%s action=authenticate username=%s result=no_profiles status=%d", c.GetString("request_id"), req.Username, http.StatusForbidden)
@@ -232,6 +240,24 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// skinSyncRetryOnLogin schedules an official skin sync for a bound account
+// whose last successful sync does not cover the bound uuid (sync failed at
+// bind time, or the account was bound before the feature existed). Never
+// touches the authenticate outcome.
+func (yc *YggdrasilController) skinSyncRetryOnLogin(accountID int) {
+	if accountID == 0 {
+		return
+	}
+	var account models.Account
+	if err := database.DB.First(&account, accountID).Error; err != nil {
+		return
+	}
+	if !yc.skinSync.LoginRetryNeeded(&account) {
+		return
+	}
+	yc.skinSync.RequestSkinSync(account.ID, "login_retry")
 }
 
 func (yc *YggdrasilController) Refresh(c *gin.Context) {

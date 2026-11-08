@@ -55,7 +55,10 @@
     "name": "Name",
     "uuid": "UUID",
     "capeAvailable": "Cape available",
-    "noSkinData": "No skin data available"
+    "noSkinData": "No skin data available",
+    "skinSyncTitle": "Official Skin Auto-Sync",
+    "skinSyncSubtitleOn": "After binding a genuine account, its official skin is mirrored to this server automatically. A failed sync never blocks the bind and is retried on your next login.",
+    "skinSyncSubtitleOff": "Off: binds and logins will not touch your skin. Re-enabling syncs the official skin again."
   },
   "profileCreation": {
     "title": "Create Game Profile",

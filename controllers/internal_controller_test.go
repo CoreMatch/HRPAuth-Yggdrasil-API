@@ -13,6 +13,7 @@ import (
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/database"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
+	"github.com/lnb/HRPAuth-Yggdrasil-API/services"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -26,6 +27,8 @@ func setupInternalControllerEnv(t *testing.T) *gin.Engine {
 		config.AppConfig = &config.Config{}
 	}
 	config.AppConfig.Runtime.InternalKey = "test-internal-key"
+	// Bind paths now schedule skin syncs; keep them out of unrelated tests.
+	t.Cleanup(services.OverrideSkinSyncDispatchForTest(func(int, string, func()) {}))
 
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "internal-test.db")), &gorm.Config{})
 	if err != nil {
@@ -39,6 +42,8 @@ func setupInternalControllerEnv(t *testing.T) *gin.Engine {
 			password varchar(255),
 			mbe BOOLEAN NOT NULL DEFAULT 0,
 			cbh BOOLEAN NOT NULL DEFAULT 1,
+			skin_sync BOOLEAN NOT NULL DEFAULT 1,
+			skin_sync_mark varchar(128),
 			last_sign_at datetime,
 			created_at datetime,
 			updated_at datetime

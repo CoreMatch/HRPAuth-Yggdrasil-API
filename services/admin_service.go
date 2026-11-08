@@ -50,9 +50,10 @@ func (as *AdminService) FindAccountByProfileName(name string) (*models.Account, 
 
 // ClaimProxyAccount links the provisioned core user to the proxy account and
 // flips cbh to claimed. Restored pre-split semantics: the mojang_uuid stays
-// untouched.
+// untouched. A bound account additionally gets the best-effort official skin
+// sync scheduled.
 func (as *AdminService) ClaimProxyAccount(accountID int, coreUserID string) error {
-	return database.DB.Transaction(func(tx *gorm.DB) error {
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&models.Account{}).
 			Where("id = ? AND cbh = ?", accountID, false).
 			Updates(map[string]interface{}{
@@ -67,6 +68,10 @@ func (as *AdminService) ClaimProxyAccount(accountID int, coreUserID string) erro
 		}
 		return nil
 	})
+	if err == nil {
+		NewSkinSyncService().RequestSkinSync(accountID, "claim_user")
+	}
+	return err
 }
 
 // ForceBindTransfer moves mojangUUID from the source (proxy) account to the
@@ -74,8 +79,11 @@ func (as *AdminService) ClaimProxyAccount(accountID int, coreUserID string) erro
 // does not exist yet, and deletes the source account. All writes happen in
 // one local transaction; the source is deleted before the uuid is written so
 // the unique mojang_uuid index never sees two live rows with the same value.
-func (as *AdminService) ForceBindTransfer(sourceAccountID int, targetCoreUserID, mojangUUID string) error {
-	return database.DB.Transaction(func(tx *gorm.DB) error {
+// It returns the target account's ID so the caller can schedule follow-ups
+// (official skin sync).
+func (as *AdminService) ForceBindTransfer(sourceAccountID int, targetCoreUserID, mojangUUID string) (int, error) {
+	targetID := 0
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var target models.Account
 		err := tx.Where("core_user_id = ?", targetCoreUserID).First(&target).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -113,7 +121,12 @@ func (as *AdminService) ForceBindTransfer(sourceAccountID int, targetCoreUserID,
 			return err
 		}
 
+		targetID = target.ID
 		log.Printf("[YGG-ADMIN] action=force_bind source_account=%d target_core_user=%s mojang_uuid=%s result=success", sourceAccountID, targetCoreUserID, mojangUUID)
 		return nil
 	})
+	if err == nil && targetID != 0 {
+		NewSkinSyncService().RequestSkinSync(targetID, "force_bind")
+	}
+	return targetID, err
 }

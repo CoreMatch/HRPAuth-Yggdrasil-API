@@ -36,6 +36,7 @@ type PlayerInfo struct {
 	MBE        bool   `json:"mbe"`         // 是否已开启 Mojang bind 流程
 	MojangUUID string `json:"mojang_uuid"` // 已绑定时为 32 位 hex；否则空串
 	CBH        bool   `json:"cbh"`         // 1 = 已被人认领 (非 bot)
+	SkinSync   bool   `json:"skin_sync"`   // 绑定后是否自动同步正版官方皮肤
 }
 
 // ErrAccountNotBound 当 Bearer token 无法映射到本地账号时返回。
@@ -238,6 +239,7 @@ func (ps *PlayerService) GetPlayerInfo(bearer string) (*PlayerInfo, error) {
 		MBE:        account.MBE,
 		MojangUUID: mUUID,
 		CBH:        account.CBH,
+		SkinSync:   account.SkinSync,
 	}, nil
 }
 
@@ -277,5 +279,45 @@ func (ps *PlayerService) DisableMojangBind(bearer string) (*PlayerInfo, error) {
 	CancelMBETimeout(account.ID)
 	account.MBE = false
 	log.Printf("[YGG-PLAYER] action=mojang_bind_disable account=%d mbe=false", account.ID)
+	return ps.GetPlayerInfo(bearer)
+}
+
+// EnableSkinSync 打开官方皮肤自动同步 (默认状态)。开启后绑定/登录会重新尝试
+// 同步；若账号已绑定 mojang_uuid，立即调度一次同步，因此该端点同时充当
+// 手动重试入口。
+func (ps *PlayerService) EnableSkinSync(bearer string) (*PlayerInfo, error) {
+	account, err := ps.ResolveAccount(bearer)
+	if err != nil {
+		return nil, err
+	}
+	if err := database.DB.Model(&models.Account{}).
+		Where("id = ?", account.ID).
+		Update("skin_sync", true).Error; err != nil {
+		return nil, err
+	}
+	account.SkinSync = true
+	log.Printf("[YGG-PLAYER] action=skin_sync_enable account=%d skin_sync=true", account.ID)
+	NewSkinSyncService().RequestSkinSync(account.ID, "manual_enable")
+	return ps.GetPlayerInfo(bearer)
+}
+
+// DisableSkinSync 关闭官方皮肤自动同步并清除同步标记；关闭后绑定与登录都
+// 不再触碰该账号的贴图。重新开启时会重新从官方档案同步。
+func (ps *PlayerService) DisableSkinSync(bearer string) (*PlayerInfo, error) {
+	account, err := ps.ResolveAccount(bearer)
+	if err != nil {
+		return nil, err
+	}
+	if err := database.DB.Model(&models.Account{}).
+		Where("id = ?", account.ID).
+		Updates(map[string]interface{}{
+			"skin_sync":      false,
+			"skin_sync_mark": nil,
+		}).Error; err != nil {
+		return nil, err
+	}
+	account.SkinSync = false
+	account.SkinSyncMark = nil
+	log.Printf("[YGG-PLAYER] action=skin_sync_disable account=%d skin_sync=false", account.ID)
 	return ps.GetPlayerInfo(bearer)
 }

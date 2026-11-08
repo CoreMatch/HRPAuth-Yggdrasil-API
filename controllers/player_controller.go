@@ -217,6 +217,30 @@ func (pc *PlayerController) DisableMojangBind(c *gin.Context) {
 	respondOK(c, "Mojang bind disabled", info)
 }
 
+// EnableSkinSync POST /player/skin-sync-enable — skin_sync=1；已绑定时立即调度同步。
+func (pc *PlayerController) EnableSkinSync(c *gin.Context) {
+	bearer := extractBearer(c)
+	info, err := pc.playerSvc.EnableSkinSync(bearer)
+	if err != nil {
+		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing bearer token")
+		return
+	}
+	log.Printf("[YGG-BIZ] request_id=%s action=skin_sync_enable account=%d skin_sync=%t", c.GetString("request_id"), info.AccountID, info.SkinSync)
+	respondOK(c, "Official skin sync enabled", info)
+}
+
+// DisableSkinSync POST /player/skin-sync-disable — skin_sync=0 并清除同步标记。
+func (pc *PlayerController) DisableSkinSync(c *gin.Context) {
+	bearer := extractBearer(c)
+	info, err := pc.playerSvc.DisableSkinSync(bearer)
+	if err != nil {
+		respondError(c, http.StatusUnauthorized, CodeInvalidCredentials, "invalid or missing bearer token")
+		return
+	}
+	log.Printf("[YGG-BIZ] request_id=%s action=skin_sync_disable account=%d skin_sync=%t", c.GetString("request_id"), info.AccountID, info.SkinSync)
+	respondOK(c, "Official skin sync disabled", info)
+}
+
 // --- Mojang sessionserver / textures 代理 ---
 
 // mojangProfileResponse 是 SDK fetchMojangProfile 期望的最小字段集合。

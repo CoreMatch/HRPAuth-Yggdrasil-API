@@ -4,7 +4,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 
 import { useSdkTranslation } from '../hooks/useSdkTranslation';
-import { getPlayerInfo, enableMojangBind, disableMojangBind } from '../api/user';
+import { getPlayerInfo, enableMojangBind, disableMojangBind, enableSkinSync, disableSkinSync } from '../api/user';
 import { mojangTextureUrl, fetchMojangProfile } from '../api/texture';
 import { getAuthToken, getMbeEnabled, setMbeEnabled, dataCache } from '../utils/proxy';
 
@@ -24,6 +24,9 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
   const [mbeEnabled, setMbeEnabledState] = useState(false);
   const [mbeLoading, setMbeLoading] = useState(false);
   const [mbeError, setMbeError] = useState<string | null>(null);
+  const [skinSyncEnabled, setSkinSyncEnabledState] = useState(true);
+  const [skinSyncLoading, setSkinSyncLoading] = useState(false);
+  const [skinSyncError, setSkinSyncError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mojangUuid, setMojangUuid] = useState<string | null>(null);
   const [mojangProfile, setMojangProfile] = useState<MojangProfile | null>(null);
@@ -65,6 +68,9 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
       if (cachedUser) {
         const apiMbe = cachedUser.mbe;
         setMbeEnabledState(apiMbe !== undefined ? Boolean(apiMbe) : (getMbeEnabled() ?? false));
+        if (cachedUser.skin_sync !== undefined) {
+          setSkinSyncEnabledState(Boolean(cachedUser.skin_sync));
+        }
         const uuid = cachedUser.mojang_uuid;
         if (uuid) {
           setMojangUuid(uuid);
@@ -90,9 +96,11 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
               ...existing,
               mbe: info.mbe,
               mojang_uuid: info.mojang_uuid,
+              skin_sync: info.skin_sync,
             });
           }
           setMbeEnabledState(Boolean(info.mbe));
+          setSkinSyncEnabledState(info.skin_sync !== undefined ? Boolean(info.skin_sync) : true);
           if (info.mojang_uuid) {
             setMojangUuid(info.mojang_uuid);
             fetchMojangProfileLocal(info.mojang_uuid);
@@ -154,6 +162,30 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
     }
   };
 
+  const handleToggleSkinSync = async () => {
+    setSkinSyncLoading(true);
+    setSkinSyncError(null);
+
+    try {
+      const resp = skinSyncEnabled ? await disableSkinSync() : await enableSkinSync();
+
+      if (resp.success && resp.data) {
+        const newValue = resp.data.skin_sync !== undefined ? Boolean(resp.data.skin_sync) : !skinSyncEnabled;
+        setSkinSyncEnabledState(newValue);
+        const existing = dataCache.getUser();
+        if (existing) {
+          dataCache.setUser({ ...existing, skin_sync: newValue });
+        }
+      } else {
+        setSkinSyncError(resp.message || t('mojangBind.operationFailed'));
+      }
+    } catch {
+      setSkinSyncError(t('common.serverError'));
+    } finally {
+      setSkinSyncLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -192,6 +224,33 @@ export default function MojangBindContent({ hideHeader = false }: MojangBindCont
             />
           }
           label={mbeLoading ? '...' : mbeEnabled ? t('mojangBind.on') : t('mojangBind.off')}
+        />
+      </Box>
+
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ flex: 1, mr: 2 }}>
+          <Typography variant="subtitle1">{t('mojangBind.skinSyncTitle')}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {skinSyncEnabled
+              ? t('mojangBind.skinSyncSubtitleOn')
+              : t('mojangBind.skinSyncSubtitleOff')
+            }
+          </Typography>
+          {skinSyncError && (
+            <Alert severity="error" sx={{ mt: 1 }} onClose={() => setSkinSyncError(null)}>
+              {skinSyncError}
+            </Alert>
+          )}
+        </Box>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={skinSyncEnabled}
+              onChange={handleToggleSkinSync}
+              disabled={skinSyncLoading}
+            />
+          }
+          label={skinSyncLoading ? '...' : skinSyncEnabled ? t('mojangBind.on') : t('mojangBind.off')}
         />
       </Box>
 

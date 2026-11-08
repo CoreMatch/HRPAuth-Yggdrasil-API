@@ -70,7 +70,7 @@ baremetal:
     binary_name: HAygg
   artifact:
     source: local_path
-    local_path: /home/lnb/Desktop/HA/HRPAuth-Yggdrasil-API/build/HAygg
+    local_path: build/HAygg
 
 container:
   enabled: false

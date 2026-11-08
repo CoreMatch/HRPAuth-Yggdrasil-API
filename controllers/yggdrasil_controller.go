@@ -92,7 +92,8 @@ func maskToken(s string) string {
 
 func (yc *YggdrasilController) Meta(c *gin.Context) {
 	c.Header("X-Authlib-Injector-API-Location", "/")
-	c.JSON(http.StatusOK, gin.H{
+	metadata := yc.GetMetadata()
+	response := gin.H{
 		"status":  "online",
 		"success": true,
 		"message": "HRPAuth Yggdrasil API Provider is running.",
@@ -102,8 +103,17 @@ func (yc *YggdrasilController) Meta(c *gin.Context) {
 			"version":     config.AppConfig.Site.Version,
 			"server_time": time.Now().Format("2006-01-02 15:04:05"),
 		},
-		"yggdrasil": yc.GetMetadata(),
-	})
+		// Nested form kept for existing consumers.
+		"yggdrasil": metadata,
+	}
+	// Also expose the metadata flat at the top level: authlib-injector
+	// expects `meta` / `skinDomains` / `signaturePublickey` at the root of the
+	// API document, and the core relay strips the ALI header, so the body
+	// itself must be a valid metadata document for runtime fetches.
+	for key, value := range metadata {
+		response[key] = value
+	}
+	c.JSON(http.StatusOK, response)
 	log.Printf("[YGG-BIZ] request_id=%s action=meta result=success status=%d", c.GetString("request_id"), http.StatusOK)
 }
 

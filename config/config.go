@@ -101,7 +101,25 @@ type YggdrasilConfig struct {
 	Server       ServerConfig
 	Security     YggdrasilSecurityConfig
 	FeatureFlags FeatureFlagsConfig
+	Microsoft    MicrosoftConfig
 }
+
+// MicrosoftConfig configures the Microsoft-login mapping. The re-verification
+// base URL is swappable so the whole chain can point at a local mock until the
+// Azure application and Mojang allowlist are ready; only configuration changes
+// then, never the code path.
+type MicrosoftConfig struct {
+	// MinecraftServicesBase is the base URL used to re-verify a Minecraft
+	// Services access token (GET {base}/minecraft/profile and
+	// {base}/entitlements/mcstore). Defaults to the official host.
+	MinecraftServicesBase string
+	// TimeoutSeconds bounds each re-verification HTTP call. Defaults to 15.
+	TimeoutSeconds int
+}
+
+// DefaultMinecraftServicesBase is the official Minecraft Services host used
+// when yggdrasil.microsoft.minecraft_services_base is not set.
+const DefaultMinecraftServicesBase = "https://api.minecraftservices.com"
 
 type ServerConfig struct {
 	Name                    string
@@ -283,6 +301,23 @@ func parseYggdrasilConfig(config map[string]interface{}) YggdrasilConfig {
 		Server:       parseServerConfig(yggdrasil),
 		Security:     parseYggdrasilSecurityConfig(yggdrasil),
 		FeatureFlags: parseFeatureFlagsConfig(yggdrasil),
+		Microsoft:    parseMicrosoftConfig(yggdrasil),
+	}
+}
+
+func parseMicrosoftConfig(yggdrasilConfig map[string]interface{}) MicrosoftConfig {
+	microsoft, _ := yggdrasilConfig["microsoft"].(map[string]interface{})
+	base := getString(microsoft, "minecraft_services_base")
+	if base == "" {
+		base = DefaultMinecraftServicesBase
+	}
+	timeout := getInt(microsoft, "timeout_seconds")
+	if timeout <= 0 {
+		timeout = 15
+	}
+	return MicrosoftConfig{
+		MinecraftServicesBase: strings.TrimRight(base, "/"),
+		TimeoutSeconds:        timeout,
 	}
 }
 

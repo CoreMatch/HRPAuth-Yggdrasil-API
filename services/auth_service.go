@@ -150,6 +150,10 @@ func (as *AuthService) RegisterGameAccount(identifier, password, mojangUUID stri
 		account = models.Account{
 			CoreUserID: ptrString(user.UUID),
 			MojangUUID: mUUIDPtr,
+			// RegisterAt maps to created_at; set it explicitly, otherwise
+			// gorm sends the zero time and MySQL strict mode rejects the
+			// insert (Error 1292).
+			RegisterAt: time.Now(),
 		}
 		if err := tx.Create(&account).Error; err != nil {
 			return err

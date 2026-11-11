@@ -14,7 +14,7 @@ Steve/Alex. The `GET /texture/mojang/{uuid}` redirect
 (`controllers/player_controller.go::Texture`) only serves the SDK skin
 preview (302 to textures.minecraft.net) and writes nothing locally, which
 made the gap invisible in the account UI. SamuelClient ADR-0007 lists this
-as open question OQ-3 [xref] (`/home/lnb/Desktop/HA/SamuelClient/knowledge/0007-microsoft-login-and-ha-account-binding-design.md`);
+as open question OQ-3 [xref] (`/home/lnb/Desktop/HA/matchcore/SamuelClient/knowledge/0007-microsoft-login-and-ha-account-binding-design.md`);
 the author decision implemented here: **mirror the official skin
 automatically**, with a per-account opt-out.
 

@@ -207,16 +207,21 @@ func (m *mock) msaToken(w http.ResponseWriter, r *http.Request) {
 // --- Xbox Live / XSTS ---
 
 func (m *mock) xblAuthenticate(w http.ResponseWriter, r *http.Request) {
+	// Public Xbox Live shape: Properties.RpsTicket is the string "d=<msa>".
 	var body struct {
-		RpsTicket struct {
-			Value string `json:"value"` // "d=<msa access token>"
-		} `json:"RpsTicket"`
+		Properties struct {
+			RpsTicket string `json:"RpsTicket"`
+		} `json:"Properties"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad_request"})
 		return
 	}
-	msaToken := strings.TrimPrefix(body.RpsTicket.Value, "d=")
+	msaToken := strings.TrimPrefix(body.Properties.RpsTicket, "d=")
+	if msaToken == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad_request"})
+		return
+	}
 	m.mu.Lock()
 	personaID, ok := m.msaAccess[msaToken]
 	m.mu.Unlock()
@@ -236,16 +241,23 @@ func (m *mock) xblAuthenticate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *mock) xstsAuthorize(w http.ResponseWriter, r *http.Request) {
+	// Public XSTS shape: Properties.UserTokens carries the Xbox Live tokens.
 	var body struct {
+		Properties struct {
+			UserTokens []string `json:"UserTokens"`
+		} `json:"Properties"`
 		RelyingParty string `json:"RelyingParty"`
-		Token        string `json:"Token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad_request"})
 		return
 	}
+	if len(body.Properties.UserTokens) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad_request"})
+		return
+	}
 	m.mu.Lock()
-	personaID, ok := m.xbl[body.Token]
+	personaID, ok := m.xbl[body.Properties.UserTokens[0]]
 	m.mu.Unlock()
 	if !ok {
 		// Real XSTS returns 401 with an XErr payload; a bare 401 suffices here.

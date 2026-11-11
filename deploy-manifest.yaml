@@ -74,3 +74,11 @@ baremetal:
 
 container:
   enabled: false
+  # 容器形态镜像：已真实发布（Docker Hub，build → push → 回拉 → 挂回
+  # compose 平台冒烟全过）。digest 为生效引用，tag 仅可读别名。
+  # 注：Deployer 运行时的 registry 鉴权拉取本阶段未实现，此段为部署声明。
+  image:
+    source: registry
+    repo: limeight/ha-hrpauth-yggdrasil-api
+    tag: "1.0.0-8d63f43"
+    digest: "sha256:b2937d5502739b1b4f27845938fe3671685d8d486bfeade03263f258a91a4476"

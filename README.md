@@ -32,19 +32,20 @@ The service listens on port `2770` by default (`server.port` in `config.yaml`). 
 
 ## Quick Start (Docker)
 
-```bash
-docker build -t hrpauth-yggdrasil-api .
+The image is published on Docker Hub: [`limeight/ha-hrpauth-yggdrasil-api`](https://hub.docker.com/r/limeight/ha-hrpauth-yggdrasil-api) (`linux/amd64` + `linux/arm64` multi-arch; tag `1.0.0-7ab0d29` alongside `latest`, effective reference pinned by the manifest list digest in [`deploy-manifest.yaml`](deploy-manifest.yaml)):
 
+```bash
 docker run -d --name yggdrasil-api \
   -p 2770:2770 \
   -v /path/to/config.yaml:/app/config.yaml \
   -v ygg-storage:/app/storage \
-  hrpauth-yggdrasil-api
+  limeight/ha-hrpauth-yggdrasil-api@sha256:9c78eddf66dd493aa2cdd77193ba52e5e85fcb378edeec45d0425e5a551c2f59
 ```
 
 - The image ships **without** a `config.yaml`; mount yours at `/app/config.yaml` (a first run with a mounted writable directory can also generate one).
 - Alternatively, set `CONFIG_TEMPLATE` and `RENDERED_CONFIG` to render the configuration from an envsubst template at container start (see `docker-entrypoint.sh`).
 - Textures are stored under `/app/storage`.
+- The repository Dockerfile remains for local builds (`docker build -t hrpauth-yggdrasil-api .`); deployment references should use the published image.
 
 ## Configuration (required fields)
 

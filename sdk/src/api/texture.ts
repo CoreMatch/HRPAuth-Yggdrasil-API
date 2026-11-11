@@ -1,17 +1,31 @@
 import { BackendUrl, buildServiceUrl, request, type ApiResponse } from '../utils/proxy';
 
+// 把材质应用到当前账号的游戏档案。上游只注册了
+// POST /texture/upload/:uuid（multipart file/type/model，账号由 Bearer
+// token 识别），所以先经 /texture/get 解析出档案 ID 再上传。
 export async function applyTextureToUser(
   type: string,
   file: File,
-  model?: string,
-  uid?: number
+  model?: string
 ): Promise<ApiResponse> {
-  const url = buildServiceUrl(BackendUrl, '/texture/upload');
+  const getResp = await request<{ profiles?: Array<{ id: string }> }>(
+    buildServiceUrl(BackendUrl, '/texture/get'),
+    { method: 'POST' },
+  );
+  const profileID = getResp.data?.profiles?.[0]?.id;
+  if (!getResp.success || !profileID) {
+    return {
+      success: false,
+      message: getResp.message || 'Profile not found',
+      code: getResp.code || 'profile_not_found',
+    };
+  }
+
+  const url = buildServiceUrl(BackendUrl, `/texture/upload/${profileID}`);
   const formData = new FormData();
-  formData.append('texture_type', type);
+  formData.append('type', type);
   formData.append('file', file);
   if (model) formData.append('model', model);
-  if (uid) formData.append('uid', uid.toString());
 
   return request(url, {
     method: 'POST',

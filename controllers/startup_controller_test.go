@@ -60,6 +60,49 @@ yggdrasil:
 	}
 }
 
+func TestCheckAndMigrateConfigGeneratesSigningKeysWhenPathsAreMissing(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	currentConfig := `
+version: "3"
+database:
+  host: "127.0.0.1"
+yggdrasil:
+  server: {}
+`
+	if err := os.WriteFile(path, []byte(currentConfig), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	if err := NewStartupController().checkAndMigrateConfig(path); err != nil {
+		t.Fatalf("checkAndMigrateConfig failed: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read migrated config: %v", err)
+	}
+	var cfg map[string]interface{}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("failed to parse migrated config: %v", err)
+	}
+	yggdrasil, _ := cfg["yggdrasil"].(map[string]interface{})
+	server, _ := yggdrasil["server"].(map[string]interface{})
+	publicKeyPath, _ := server["signature_public_key_path"].(string)
+	privateKeyPath, _ := server["signature_private_key_path"].(string)
+	if publicKeyPath != filepath.Join(dir, "public_key.pem") {
+		t.Fatalf("unexpected public key path: %q", publicKeyPath)
+	}
+	if privateKeyPath != filepath.Join(dir, "private_key.pem") {
+		t.Fatalf("unexpected private key path: %q", privateKeyPath)
+	}
+	for _, keyPath := range []string{publicKeyPath, privateKeyPath} {
+		if info, err := os.Stat(keyPath); err != nil || info.Size() == 0 {
+			t.Fatalf("expected generated key file %q, stat=%v err=%v", keyPath, info, err)
+		}
+	}
+}
+
 func TestBuildDefaultConfigIncludesDecoupledDefaults(t *testing.T) {
 	sc := NewStartupController()
 	cfg := sc.buildDefaultConfig("/tmp/public.pem", "/tmp/private.pem")

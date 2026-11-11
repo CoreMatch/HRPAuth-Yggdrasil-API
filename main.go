@@ -150,6 +150,7 @@ func main() {
 	internalCtrl := controllers.NewInternalController()
 	playerCtrl := controllers.NewPlayerController()
 	adminCtrl := controllers.NewAdminController()
+	microsoftCtrl := controllers.NewMicrosoftController()
 
 	r.GET("/", yggdrasilCtrl.Meta)
 	// 专用存活探针：不查数据库、不做重活，供容器 healthcheck 使用。
@@ -181,6 +182,8 @@ func main() {
 		player.POST("/mojang-bind-disable", playerCtrl.DisableMojangBind)
 		player.POST("/skin-sync-enable", playerCtrl.EnableSkinSync)
 		player.POST("/skin-sync-disable", playerCtrl.DisableSkinSync)
+		player.POST("/microsoft-bind", microsoftCtrl.Bind)
+		player.POST("/microsoft-unbind", microsoftCtrl.Unbind)
 	}
 
 	r.GET("/mojang/profile/:uuid", playerCtrl.Profile)
@@ -189,6 +192,7 @@ func main() {
 	auth := r.Group("/authserver")
 	{
 		auth.POST("/authenticate", yggdrasilCtrl.Authenticate)
+		auth.POST("/microsoft", microsoftCtrl.Exchange)
 		auth.POST("/refresh", yggdrasilCtrl.Refresh)
 		auth.POST("/validate", yggdrasilCtrl.Validate)
 		auth.POST("/invalidate", yggdrasilCtrl.Invalidate)

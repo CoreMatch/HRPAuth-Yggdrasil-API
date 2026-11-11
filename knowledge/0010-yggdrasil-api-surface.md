@@ -236,13 +236,13 @@ Available for creating a game account without an HRPAuth core identity.
         - `mbe = 0` → `409 username_already_bound` (HA accounts have priority; a Mojang player cannot take the name).
     4. Username collides with an account already bound to a different `mojang_uuid` → `409 username_already_bound` regardless of `mbe`.
 
-> Current WinnerProxy behavior: WinnerProxy does not call this endpoint. Its
-> proxy registration issues `POST /register` against the upstream with an
-> OAuth2 Bearer token and body `{username, password, email: "",
-> mojang_uuid}`. Upstream `/register` requires the `identifier` field, so
-> this outbound call does not succeed against the current upstream as of
-> 2026-11-04 (the contract-sanctioned endpoint is
-> `POST /internal/proxy-register`, see above). The batch profile query used
+> Current WinnerProxy behavior: WinnerProxy's stage-3 absorption calls this
+> endpoint (`POST /internal/proxy-register` with `X-Internal-Key`, WinnerProxy
+> `6c24770`). Historical note: before that fix, WinnerProxy issued
+> `POST /register` against the upstream with an OAuth2 Bearer token and body
+> `{username, password, email: "", mojang_uuid}`; upstream `/register`
+> requires the `identifier` field, so that outbound call did not succeed
+> against this upstream (observed 2026-11-04). The batch profile query used
 > to target `POST {upstream}/yggdrasil/api/profiles/minecraft` (an extra
 > `/yggdrasil` segment this contract does not define) and 404'd; it was
 > fixed on 2026-11-05 (WinnerProxy `4ded866`) to call the prefix-less

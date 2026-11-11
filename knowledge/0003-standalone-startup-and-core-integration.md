@@ -88,7 +88,7 @@ Core integration is **switched on solely by filling `core_api.client_id` /
   RSA key pair, `controllers/startup_controller.go::createDefaultConfig`) with
   empty `core_api` credentials; the operator must fill them and restart to join
   the ecosystem. This is the documented deployment path
-  (`README.md:L49-L62 fp=81b3a0d6 ~ Configuration (required fields)`).
+  (`README.md:L50-L63 fp=81b3a0d6 ~ Configuration (required fields)`).
 - Because registration failures are warnings, a misconfigured production service
   "runs" but is invisible to the core relay — the game client reachability breaks
   silently until logs are read. Presence TTL is 120 s

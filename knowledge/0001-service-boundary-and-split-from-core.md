@@ -29,7 +29,7 @@ ecosystem, and the core stays the sole owner of general identity:
 - **HA-Contract** (sibling repository `CoreMatch/HA-Contract`): all outward behavior
   definitions. This repository keeps no API documentation of its own; the README
   points to HA-Contract for the protocol surface and the business OpenAPI
-  (`README.md:L68-L77 fp=45dc8bc8 ~ API reference`).
+  (`README.md:L69-L75 fp=2e8808c1 ~ API reference`).
 - **WebUI** (`CoreMatch/HRPAuth-WebUI`): consumes this service only through the
   core's relay under the `/yggdrasil-api` path prefix, plus the SDK package this
   service uploads (see ADR-0003).
@@ -66,7 +66,7 @@ All paths relative to this repository unless noted.
 - Owns the Yggdrasil protocol surface: route registration in
   `main.go::main` (authserver, sessionserver, textures,
   minecraftservices, player, register).
-- Contract pointers in README: `README.md:L68-L77 fp=45dc8bc8 ~ API reference`.
+- Contract pointers in README: `README.md:L69-L75 fp=2e8808c1 ~ API reference`.
 - Ecosystem positioning of the relay/presence mechanism: [xref] HA-Contract
   `docs/dev/HRPAuth/microservices.md` ("Design Positioning" section) — checked
   in this pass.

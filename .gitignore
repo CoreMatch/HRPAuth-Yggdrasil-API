@@ -5,3 +5,5 @@ build
 1
 # 真实运行配置（含数据库凭据与密钥路径），不进版本库；新检出请 cp config.yaml.example config.yaml
 config.yaml
+/private_key.pem
+/public_key.pem

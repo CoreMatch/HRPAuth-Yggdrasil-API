@@ -58,8 +58,6 @@ yggdrasil:
             homepage: ""
             register: ""
         name: HRPAuth
-        signature_private_key_path: /home/lnb/Desktop/HA/HRPAuth-Yggdrasil-API/private_key.pem
-        signature_public_key_path: /home/lnb/Desktop/HA/HRPAuth-Yggdrasil-API/public_key.pem
         skin_domains: []
         textures_storage: ./storage
         version: 1.0.0

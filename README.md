@@ -36,14 +36,14 @@ The service listens on port `2770` by default (`server.port` in `config.yaml`). 
 
 ## Quick Start (Docker)
 
-The image is published on Docker Hub: [`limeight/ha-hrpauth-yggdrasil-api`](https://hub.docker.com/r/limeight/ha-hrpauth-yggdrasil-api) (`linux/amd64` + `linux/arm64` multi-arch; tag `1.0.0-7ab0d29` alongside `latest`, effective reference pinned by the manifest list digest in [`deploy-manifest.yaml`](deploy-manifest.yaml)):
+The image is published on Docker Hub: [`limeight/ha-hrpauth-yggdrasil-api`](https://hub.docker.com/r/limeight/ha-hrpauth-yggdrasil-api) (`linux/amd64` + `linux/arm64` multi-arch; tag `1.3.0-1d1b2cf` alongside `latest`, effective reference pinned by the manifest list digest in [`deploy-manifest.yaml`](deploy-manifest.yaml)):
 
 ```bash
 docker run -d --name yggdrasil-api \
   -p 2770:2770 \
   -v /path/to/config.yaml:/app/config.yaml \
   -v ygg-storage:/app/storage \
-  limeight/ha-hrpauth-yggdrasil-api@sha256:9c78eddf66dd493aa2cdd77193ba52e5e85fcb378edeec45d0425e5a551c2f59
+  limeight/ha-hrpauth-yggdrasil-api@sha256:c9e880dd023db4220874638bfde7cad5ae62edb320444b075e88898347058e6e
 ```
 
 - The image ships **without** a `config.yaml`; mount yours at `/app/config.yaml` (a first run with a mounted writable directory can also generate one).

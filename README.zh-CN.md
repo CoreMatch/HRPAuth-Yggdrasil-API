@@ -36,14 +36,14 @@ curl http://localhost:2770/
 
 ## 快速开始（Docker）
 
-镜像已发布到 Docker Hub：[`limeight/ha-hrpauth-yggdrasil-api`](https://hub.docker.com/r/limeight/ha-hrpauth-yggdrasil-api)（`linux/amd64` + `linux/arm64` 多架构；tag `1.0.0-7ab0d29` 并列 `latest`，生效引用以 [`deploy-manifest.yaml`](deploy-manifest.yaml) 登记的 manifest list digest 为准）：
+镜像已发布到 Docker Hub：[`limeight/ha-hrpauth-yggdrasil-api`](https://hub.docker.com/r/limeight/ha-hrpauth-yggdrasil-api)（`linux/amd64` + `linux/arm64` 多架构；tag `1.3.0-1d1b2cf` 并列 `latest`，生效引用以 [`deploy-manifest.yaml`](deploy-manifest.yaml) 登记的 manifest list digest 为准）：
 
 ```bash
 docker run -d --name yggdrasil-api \
   -p 2770:2770 \
   -v /path/to/config.yaml:/app/config.yaml \
   -v ygg-storage:/app/storage \
-  limeight/ha-hrpauth-yggdrasil-api@sha256:9c78eddf66dd493aa2cdd77193ba52e5e85fcb378edeec45d0425e5a551c2f59
+  limeight/ha-hrpauth-yggdrasil-api@sha256:c9e880dd023db4220874638bfde7cad5ae62edb320444b075e88898347058e6e
 ```
 
 - 镜像内**不含** `config.yaml`，请将其挂载到 `/app/config.yaml`（若挂载目录可写，首次运行也可自动生成）。

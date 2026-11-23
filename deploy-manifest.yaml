@@ -82,5 +82,5 @@ container:
   image:
     source: registry
     repo: limeight/ha-hrpauth-yggdrasil-api
-    tag: "1.0.0-1a9cd4b"
-    digest: "sha256:9c78eddf66dd493aa2cdd77193ba52e5e85fcb378edeec45d0425e5a551c2f59"
+    tag: "1.3.0-1d1b2cf"
+    digest: "sha256:c9e880dd023db4220874638bfde7cad5ae62edb320444b075e88898347058e6e"

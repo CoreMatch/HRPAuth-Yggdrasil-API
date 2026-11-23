@@ -66,7 +66,7 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 		"site": map[string]interface{}{
 			"name":           "HRPAuth",
 			"implementation": "HRPAuth Yggdrasil API Provider",
-			"version":        "1.0.0",
+			"version":        "1.3.0",
 		},
 		"server": map[string]interface{}{
 			"port":        ":2770",
@@ -113,7 +113,7 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 			"server": map[string]interface{}{
 				"name":                       "HRPAuth",
 				"implementation":             "HRPAuth Yggdrasil API Provider",
-				"version":                    "1.0.0",
+				"version":                    "1.3.0",
 				"signature_public_key_path":  publicKeyPath,
 				"signature_private_key_path": privateKeyPath,
 				"textures_storage":           "./storage",

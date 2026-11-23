@@ -4,9 +4,13 @@
 
 HRPAuth-Yggdrasil-API 是 HRPAuth 生态中兼容 Yggdrasil 协议的 Minecraft 认证服务。它向游戏客户端（兼容 [authlib-injector](https://yushijinhun.github.io/authlib-injector/)）提供标准 Yggdrasil 协议接口，并连接运行中的 [HRPAuth](https://github.com/CoreMatch/HRPAuth) 核心完成账号校验与生态集成。
 
+## 1.3.0 与后续方向
+
+HRPAuth 1.3.0 是最后一个将“server owner 自行搭建 HA”作为默认路径的版本。后续版本拟将维护者运营的公共 HA 作为一等接入选项，重点改善非站长 server owner 的接入体验。这里表达的是设计意图，不代表弃用自建、承诺改变默认策略或给出时间表；自建部署仍受支持。
+
 ## 前置依赖
 
-- Go 1.26.4+（源码构建）或 Docker
+- Go 1.26.10（以 `go.mod` 为准）或 Docker
 - MySQL —— 需先创建数据库与用户；数据表会在启动时自动创建
 - Redis
 - 运行中的 [HRPAuth](https://github.com/CoreMatch/HRPAuth) 核心 —— 启动时可选，但常规用户认证与 WebUI 集成必须连接核心；未连接时仅内部登记的代理账号可登录。

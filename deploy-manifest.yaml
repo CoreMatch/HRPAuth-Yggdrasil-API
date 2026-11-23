@@ -5,8 +5,8 @@ kind: service
 project: hrpauth-yggdrasil-api
 display_name: HRPAuth-Yggdrasil-API
 group: satellite
-# 模板 site.version / yggdrasil.server.version 均为 "1.0.0"（无 git 版本 tag）。
-service_version: "1.0.0"
+# 模板 site.version / yggdrasil.server.version 均为 "1.3.0"。
+service_version: "1.3.0"
 
 facts:
   ports:

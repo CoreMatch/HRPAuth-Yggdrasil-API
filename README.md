@@ -4,9 +4,13 @@
 
 HRPAuth-Yggdrasil-API is a Yggdrasil-compatible Minecraft authentication service in the HRPAuth ecosystem. It serves the standard Yggdrasil protocol surface to game clients (compatible with [authlib-injector](https://yushijinhun.github.io/authlib-injector/)), and connects to a running [HRPAuth](https://github.com/CoreMatch/HRPAuth) core for account verification and ecosystem integration.
 
+## 1.3.0 and future direction
+
+HRPAuth 1.3.0 is the last release that presents self-hosting the HA stack as the default path for server owners. Later releases intend to make the maintainer-operated public HA a first-class onboarding option for server owners who do not run the site. This is a design direction, not a deprecation notice or a committed default or timeline; self-hosted deployments remain supported.
+
 ## Prerequisites
 
-- Go 1.26.4+ (to build from source) or Docker
+- Go 1.26.10 (see `go.mod`) or Docker
 - MySQL — create the database and user first; tables are created automatically on startup
 - Redis
 - A running [HRPAuth](https://github.com/CoreMatch/HRPAuth) core — required at startup whenever `core_api` credentials are configured (startup credential resolution aborts on any failure; production configs always set credentials), and required at runtime for regular user authentication and WebUI integration. Only with `core_api` credentials left empty can the service start without a core, and then only internally registered proxy accounts can authenticate.

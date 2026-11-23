@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import type { ChangeEvent } from 'react';
 import { Box, Typography, CircularProgress, Alert, Stack, Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import CloudUpload from '@mui/icons-material/CloudUpload';
@@ -12,11 +12,20 @@ const SkinViewer3D = lazy(() => import('../components/SkinViewer3D'));
 
 type TextureType = 'skin' | 'cape';
 
+interface TextureGetResponse {
+  profiles?: Array<{
+    id: string;
+    textures?: {
+      skin?: { url?: string };
+      cape?: { url?: string };
+    };
+  }>;
+}
+
 function normalizeTextureUrl(url: string, serviceBaseUrl: string): string {
   if (!url) return url;
   try {
     const parsed = new URL(url);
-    // @ts-ignore
     if (import.meta.env.DEV) return parsed.pathname;
 
     const backendBase = serviceBaseUrl.replace(/\/$/, '');
@@ -31,7 +40,7 @@ function normalizeTextureUrl(url: string, serviceBaseUrl: string): string {
       if (backendPath && path.startsWith(backendPath)) {
         path = path.substring(backendPath.length);
       }
-    } catch (e) {
+    } catch {
       // Ignore parsing errors for relative BackendUrl
     }
 
@@ -65,7 +74,7 @@ export default function TextureManagementContent({ hideHeader = false }: Texture
   const serviceBaseUrl = buildServiceUrl(BackendUrl, '');
 
   const getCurrentProfileID = async (): Promise<string | null> => {
-    const response = await request(`${serviceBaseUrl}/texture/get`, { method: 'POST' });
+    const response = await request<TextureGetResponse>(`${serviceBaseUrl}/texture/get`, { method: 'POST' });
     if (!response.success) {
       setError(response.message || t('common.serverError'));
       return null;
@@ -80,9 +89,9 @@ export default function TextureManagementContent({ hideHeader = false }: Texture
     return profileID;
   };
 
-  const fetchTextures = async () => {
+  const fetchTextures = useCallback(async () => {
     try {
-      const response = await request(`${serviceBaseUrl}/texture/get`, { method: 'POST' });
+      const response = await request<TextureGetResponse>(`${serviceBaseUrl}/texture/get`, { method: 'POST' });
       if (response.success && response.data) {
         const profile = response.data.profiles?.[0];
         if (profile) {
@@ -102,11 +111,11 @@ export default function TextureManagementContent({ hideHeader = false }: Texture
     } finally {
       setLoading(false);
     }
-  };
+  }, [serviceBaseUrl]);
 
   useEffect(() => {
-    fetchTextures();
-  }, []);
+    void fetchTextures();
+  }, [fetchTextures]);
 
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>, type: TextureType) => {
     const file = event.target.files?.[0];

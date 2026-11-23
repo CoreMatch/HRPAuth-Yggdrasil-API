@@ -1,86 +1,32 @@
-# HRPAuth-Yggdrasil-API
+<div align="center">
+  <h1>HRPAuth-Yggdrasil-API</h1>
+  <p><strong>让 HRPAuth 身份畅行 Minecraft。</strong></p>
+  <p><a href="./README.md">English</a></p>
+</div>
 
-[English](README.md)
+HRPAuth-Yggdrasil-API 以运行中的 HRPAuth 身份中心为后端，为 Minecraft 客户端提供 Yggdrasil 与 authlib-injector 接口。
 
-HRPAuth-Yggdrasil-API 是 HRPAuth 生态中兼容 Yggdrasil 协议的 Minecraft 认证服务。它向游戏客户端（兼容 [authlib-injector](https://yushijinhun.github.io/authlib-injector/)）提供标准 Yggdrasil 协议接口，并连接运行中的 [HRPAuth](https://github.com/CoreMatch/HRPAuth) 核心完成账号校验与生态集成。
+它承载认证、令牌刷新、服务器加入、档案与纹理，并支持绑定 Microsoft 和 Mojang 账号。
 
-## 1.3.0 与后续方向
+## 为什么选择 HRPAuth-Yggdrasil-API
 
-HRPAuth 1.3.0 是最后一个将“server owner 自行搭建 HA”作为默认路径的版本。后续版本拟将维护者运营的公共 HA 作为一等接入选项，重点改善非站长 server owner 的接入体验。这里表达的是设计意图，不代表弃用自建、承诺改变默认策略或给出时间表；自建部署仍受支持。
+- **共用一套账号根基。** 在兼容的游戏客户端中使用 HRPAuth 凭据。
+- **标准客户端流程。** 通过 Yggdrasil 支持认证、刷新、加入与档案操作。
+- **连接既有身份。** 将 Microsoft 和 Mojang 账号绑定到生态档案。
+- **随行档案与纹理。** 提供玩家档案数据及皮肤、披风纹理。
+- **扩展账号门户。** 内嵌用于 HRPAuth 托管页面的 WebUI SDK。
 
-## 前置依赖
+## 进一步了解
 
-- Go 1.26.10（以 `go.mod` 为准）或 Docker
-- MySQL —— 需先创建数据库与用户；数据表会在启动时自动创建
-- Redis
-- 运行中的 [HRPAuth](https://github.com/CoreMatch/HRPAuth) 核心 —— 启动时可选，但常规用户认证与 WebUI 集成必须连接核心；未连接时仅内部登记的代理账号可登录。
+- [HA Wiki](https://wiki.mcnb.dev/) — 生态文档
+- [Docker 镜像](https://hub.docker.com/r/limeight/ha-hrpauth-yggdrasil-api) — 已发布的容器镜像
+- [HRPAuth](https://github.com/CoreMatch/HRPAuth) — 身份后端
+- [HA-Contract](https://github.com/CoreMatch/HA-Contract) — 生态 API 契约
 
-## 快速开始（二进制）
+## 兼容性
 
-```bash
-# 1. 构建
-./build.sh                    # 产出 build/HAygg
+支持 Yggdrasil 与 authlib-injector，并不意味着兼容所有 Minecraft 客户端或启动器。
 
-# 2. 首次运行：在二进制同目录生成 config.yaml 与 RSA 签名密钥对
-./build/HAygg
+## 许可证与来源
 
-# 3. 停止，编辑 config.yaml（见下文"配置"），再次启动
-./build/HAygg
-
-# 4. 验证
-curl http://localhost:2770/
-# 返回的 JSON 中应包含 "status": "online"
-```
-
-服务默认监听 `2770` 端口（`config.yaml` 中的 `server.port`）。配置文件与生成的密钥对必须与二进制放在同一目录。
-
-## 快速开始（Docker）
-
-镜像已发布到 Docker Hub：[`limeight/ha-hrpauth-yggdrasil-api`](https://hub.docker.com/r/limeight/ha-hrpauth-yggdrasil-api)（`linux/amd64` + `linux/arm64` 多架构；tag `1.3.0-1d1b2cf` 并列 `latest`，生效引用以 [`deploy-manifest.yaml`](deploy-manifest.yaml) 登记的 manifest list digest 为准）：
-
-```bash
-docker run -d --name yggdrasil-api \
-  -p 2770:2770 \
-  -v /path/to/config.yaml:/app/config.yaml \
-  -v ygg-storage:/app/storage \
-  limeight/ha-hrpauth-yggdrasil-api@sha256:c9e880dd023db4220874638bfde7cad5ae62edb320444b075e88898347058e6e
-```
-
-- 镜像内**不含** `config.yaml`，请将其挂载到 `/app/config.yaml`（若挂载目录可写，首次运行也可自动生成）。
-- 也可以设置 `CONFIG_TEMPLATE` 与 `RENDERED_CONFIG`，在容器启动时用 envsubst 模板渲染配置（见 `docker-entrypoint.sh`）。
-- 纹理文件存储在 `/app/storage`。
-- 仓库 Dockerfile 保留用于本地构建（`docker build -t hrpauth-yggdrasil-api .`）；部署引用以已发布镜像为准。
-
-## 配置（必改字段）
-
-首次启动会自动生成默认 `config.yaml`。生产使用前通常必须修改以下字段：
-
-| 字段 | 含义 |
-|---|---|
-| `core_api.base_url` | HRPAuth 核心地址，如 `http://localhost:2778` |
-| `core_api.client_id` / `core_api.client_secret` | 核心服务 API 的 OAuth2 凭据 |
-| `database.host` / `db_name` / `user` / `password` | MySQL 连接（数据库需已存在） |
-| `redis.host` / `redis.port` | Redis 连接 |
-| `microservice.relay_url` | HRPAuth 核心可访问到本服务的地址 |
-| `callback.url` | 纹理 URL 使用的公网基址；留空时自动取自核心的站点元数据 |
-
-完整字段以 [`config.yaml`](config.yaml) 与 [`config/config.go`](config/config.go) 为准。
-
-## authlib-injector 兼容性
-
-本服务实现 Yggdrasil 协议，兼容 authlib-injector：将 injector（或任何 Yggdrasil 客户端）指向本服务的公网地址即可。生产环境建议使用 HTTPS。`yggdrasil.server.skin_domains` 留空时默认取站点域名。
-
-## API 契约
-
-API 契约统一维护在 [HA-Contract](https://github.com/CoreMatch/HA-Contract)：
-
-- Yggdrasil 协议面：[`docs/dev/HRPAuth/yggdrasil-api.md`](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/yggdrasil-api.md)
-- 业务端点（OpenAPI）：[`docs/api/openapi/hrpauth-yggdrasil-business.yaml`](https://github.com/CoreMatch/HA-Contract/blob/main/docs/api/openapi/hrpauth-yggdrasil-business.yaml)
-
-## WebUI SDK
-
-本仓库内嵌了一份 WebUI SDK 包，服务启动时自动上传至 HRPAuth 核心。SDK 包格式与挂载契约见 [`docs/dev/HRPAuth/sdk-package.md`](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/sdk-package.md)。
-
-## 许可
-
-[AGPL-3.0](LICENSE)
+[AGPL-3.0](LICENSE)。来源：[CoreMatch/HRPAuth-Yggdrasil-API](https://github.com/CoreMatch/HRPAuth-Yggdrasil-API)。

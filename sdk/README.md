@@ -1,6 +1,6 @@
 # Yggdrasil API WebUI SDK
 
-This SDK package provides the Yggdrasil-related management interfaces for the HRPAuth WebUI.
+This SDK package provides the Yggdrasil-related management interfaces for the Armorial WebUI.
 
 ## Features
 
@@ -14,4 +14,4 @@ This package is designed to be aggregated by `HA-WebUI-SDKHandler`. It relies on
 
 ## Routes
 
-For the currently declared routes and profile cards, see [`manifest.json`](manifest.json). The mounting contract — how routes, dashboard entries and profile cards are aggregated into the host WebUI at build time — is defined in HA-Contract [`docs/dev/HRPAuth/sdk-package.md`](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/sdk-package.md).
+For the currently declared routes and profile cards, see [`manifest.json`](manifest.json). The mounting contract — how routes, dashboard entries and profile cards are aggregated into the host WebUI at build time — is defined in the Armorial API Contracts [`docs/dev/HRPAuth/sdk-package.md`](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/sdk-package.md).

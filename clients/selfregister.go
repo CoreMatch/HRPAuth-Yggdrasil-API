@@ -19,7 +19,7 @@ type HTTPDoer interface {
 }
 
 // ErrCredentialsRejected is returned when the configured credentials are
-// neither the HRPAuth built-in super client nor a valid service client.
+// neither the Armorial built-in super client nor a valid service client.
 // Startup must abort with this error; there is deliberately no fallback to
 // running business traffic with unverified or super credentials.
 var ErrCredentialsRejected = errors.New("clients: credentials rejected")
@@ -35,7 +35,7 @@ type Resolution struct {
 	Exchanged bool
 }
 
-// registrationEnvelope mirrors the HRPAuth POST /oauth/register response:
+// registrationEnvelope mirrors the Armorial POST /oauth/register response:
 // the unified envelope carries the RFC 7591 client metadata both in
 // data and flattened at the top level.
 type registrationEnvelope struct {
@@ -49,7 +49,7 @@ type registrationEnvelope struct {
 	Data                  *registrationEnvelope `json:"data"`
 }
 
-// ResolveServiceCredentials classifies the configured HRPAuth credentials
+// ResolveServiceCredentials classifies the configured Armorial credentials
 // and, when they turn out to be the built-in super client, exchanges them
 // for this service's own low-privilege client via POST /oauth/register
 // (RFC 7591 protected registration; the super client authenticates with
@@ -60,7 +60,7 @@ type registrationEnvelope struct {
 //
 //   - 201: super credentials; the exchanged per-service client is
 //     returned (Exchanged=true). The response secret is stable across
-//     restarts (HRPAuth get-or-create), so it never needs persisting by
+//     restarts (Armorial get-or-create), so it never needs persisting by
 //     this service.
 //   - 400 invalid_client_metadata: super credentials, but the
 //     registration was rejected (service name not presence-registered,
@@ -77,7 +77,7 @@ type registrationEnvelope struct {
 // unverified credentials must not be trusted.
 //
 // serviceName must be the name this service registers under via
-// /services/presence — HRPAuth rejects registration for unknown names.
+// /services/presence — Armorial rejects registration for unknown names.
 // The caller is responsible for completing the presence handshake before
 // invoking this function.
 func ResolveServiceCredentials(rootURL, serviceName, clientID, clientSecret string, doer HTTPDoer) (*Resolution, error) {

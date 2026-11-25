@@ -44,7 +44,7 @@
   "mojangBind": {
     "title": "Mojang Account Binding",
     "subtitleEnabled": "Allow Mojang players with the same username to bind to your account",
-    "subtitleDisabled": "HA priority: Mojang players with the same username will be rejected",
+    "subtitleDisabled": "Armorial priority: Mojang players with the same username will be rejected",
     "on": "On",
     "off": "Off",
     "operationFailed": "Operation failed",

@@ -94,7 +94,7 @@ func main() {
 	config.Load()
 
 	// Startup credential resolution: when the configured core_api
-	// credentials are HRPAuth's built-in super client, they are exchanged
+	// credentials are Armorial's built-in super client, they are exchanged
 	// for this service's own low-privilege client via POST /oauth/register
 	// (RFC 7591 protected registration) and the super secret is discarded
 	// from memory. Must run before any core_api client is constructed
@@ -236,7 +236,7 @@ func main() {
 		})
 	})
 
-	// Register with HRPAuth core in background
+	// Register with Armorial core in background
 	go func() {
 		time.Sleep(2 * time.Second) // Wait for server to start
 		if err := startupCtrl.RegisterService(); err != nil {
@@ -246,12 +246,12 @@ func main() {
 		startupCtrl.UploadSDKPackage(sdkFS)
 	}()
 
-	log.Printf("HRPAuth Yggdrasil API Provider listening on %s", config.AppConfig.Server.Port)
+	log.Printf("Armorial Yggdrasil API Provider listening on %s", config.AppConfig.Server.Port)
 	r.Run(config.AppConfig.Server.Port)
 }
 
 // resolveCoreCredentials implements the startup credential resolution for
-// the core_api client credentials: when they turn out to be HRPAuth's
+// the core_api client credentials: when they turn out to be Armorial's
 // built-in super client, they are exchanged for this service's own
 // low-privilege client via POST /oauth/register (RFC 7591 protected
 // registration) and the super secret is discarded from memory; credentials
@@ -306,7 +306,7 @@ func resolveCoreCredentials() {
 // (CONFIG_TEMPLATE/RENDERED_CONFIG) are only warned about; a failed
 // write-back is not fatal — the service keeps running with the in-memory
 // credentials and the next startup exchanges again (the secret is stable
-// server-side via HRPAuth get-or-create).
+// server-side via Armorial get-or-create).
 func applyResolvedCredentialsToConfigFile(superID, superSecret string, res *clients.Resolution) {
 	if config.IsRenderedDeployment() {
 		log.Printf("WARN: config file is entrypoint-rendered (CONFIG_TEMPLATE/RENDERED_CONFIG); per-service credentials were NOT written back — set core_api.client_id/client_secret on the template/environment side instead; this deployment will exchange again on every start")

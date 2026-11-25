@@ -111,6 +111,23 @@ func TestBuildDefaultConfigIncludesDecoupledDefaults(t *testing.T) {
 		t.Fatalf("expected default config version %s, got %v", config.ConfigVersion, cfg["version"])
 	}
 
+	site, ok := cfg["site"].(map[string]interface{})
+	if !ok || site["name"] != "Armorial" || site["implementation"] != "Armorial Yggdrasil API Provider" {
+		t.Fatalf("expected Armorial site defaults, got %v", site)
+	}
+	microservice, ok := cfg["microservice"].(map[string]interface{})
+	if !ok || microservice["name"] != "HRPAuth-Yggdrasil-API" {
+		t.Fatalf("expected compatible microservice name, got %v", microservice)
+	}
+	database, ok := cfg["database"].(map[string]interface{})
+	if !ok || database["db_name"] != "hrpa" || database["table_prefix"] != "haygg_" {
+		t.Fatalf("expected compatible database identifiers, got %v", database)
+	}
+	redis, ok := cfg["redis"].(map[string]interface{})
+	if !ok || redis["prefix"] != "hrpauth_ygg_" {
+		t.Fatalf("expected compatible Redis prefix, got %v", redis)
+	}
+
 	coreAPI, ok := cfg["core_api"].(map[string]interface{})
 	if !ok {
 		t.Fatal("core_api section missing from default config")

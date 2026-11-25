@@ -1,9 +1,9 @@
-# HRPAuth-Yggdrasil-API 部署声明（deploy-manifest v1）
+# Armorial Yggdrasil API 部署声明（deploy-manifest v1）
 # schema 依据：HA-Cupbearer internal/manifest/（SchemaVersion=1）
 manifest_version: 1
 kind: service
 project: hrpauth-yggdrasil-api
-display_name: HRPAuth-Yggdrasil-API
+display_name: Armorial Yggdrasil API
 group: satellite
 # 模板 site.version / yggdrasil.server.version 均为 "1.3.0"。
 service_version: "1.3.0"
@@ -38,7 +38,7 @@ facts:
       assert:
         contains: ProfileNotFoundException
   depends_on:
-    # database/redis 段为启动硬依赖；core_api 指向 HRPAuth：
+    # database/redis 段为启动硬依赖；core_api 指向 Armorial：
     # 启动期凭据解析（main.go resolveCoreCredentials）+ FetchMetadata，
     # compose depends_on hrpauth: service_healthy。
     - project: mysql

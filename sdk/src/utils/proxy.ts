@@ -1,4 +1,4 @@
-// This utility acts as a bridge between the SDK and the HRPAuth-Web host application.
+// This utility acts as a bridge between the SDK and the Armorial WebUI host application.
 // When the SDK is aggregated, these relative imports will point to the host's actual utilities.
 
 export { BackendUrl, getRealBackendUrl } from '../../../../../utils/config';

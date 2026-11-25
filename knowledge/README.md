@@ -12,11 +12,11 @@ defines outward behavior.
 
 ## Order of Authority
 
-For outward behavior, **the HA-Contract repository is authoritative**: the Yggdrasil
-protocol surface is documented in HA-Contract `docs/dev/HRPAuth/yggdrasil-api.md`,
-the business wrapper endpoints in HA-Contract
+For outward behavior, **the Armorial Contract repository is authoritative**: the Yggdrasil
+protocol surface is documented in Armorial Contract `docs/dev/HRPAuth/yggdrasil-api.md`,
+the business wrapper endpoints in Armorial Contract
 `docs/api/openapi/hrpauth-yggdrasil-business.yaml`, and the SDK package / presence /
-relay mechanism in HA-Contract `docs/dev/HRPAuth/sdk-package.md` and
+relay mechanism in Armorial Contract `docs/dev/HRPAuth/sdk-package.md` and
 `docs/dev/HRPAuth/microservices.md`. This repository keeps no contracts of its own.
 The knowledge base only explains internal workings and design rationale. If an entry
 here ever appears to contradict a contract, the contract wins and the entry is stale —

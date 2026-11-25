@@ -38,7 +38,7 @@ type CallbackConfig struct {
 type MicroserviceConfig struct {
 	Name            string
 	TTLSeconds      int
-	RelayURL        string // The external URL of this service that HRPAuth can reach
+	RelayURL        string // The external URL of this service that Armorial can reach
 	RelayPathPrefix string // The path prefix on the Core side that relays to this service
 	ProfileCards    map[string]int
 }

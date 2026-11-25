@@ -44,7 +44,7 @@
   "mojangBind": {
     "title": "正版账号绑定",
     "subtitleEnabled": "允许同名 Mojang 玩家绑定到你的账户",
-    "subtitleDisabled": "HA 优先：同名 Mojang 玩家将被拒绝",
+    "subtitleDisabled": "Armorial 优先：同名 Mojang 玩家将被拒绝",
     "on": "开",
     "off": "关",
     "operationFailed": "操作失败",

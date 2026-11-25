@@ -71,4 +71,7 @@ func TestMetaServesFlatAuthlibMetadata(t *testing.T) {
 	if body["status"] != "online" {
 		t.Errorf("status = %v, want online", body["status"])
 	}
+	if body["message"] != "Armorial Yggdrasil API Provider is running." {
+		t.Errorf("message = %v, want Armorial provider status", body["message"])
+	}
 }

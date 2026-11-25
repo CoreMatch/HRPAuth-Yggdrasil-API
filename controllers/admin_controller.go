@@ -15,7 +15,7 @@ import (
 // AdminController serves the operator/plugin administration endpoints under
 // /admin (HA-Contract hrpauth-yggdrasil-business.yaml). Both endpoints are
 // called by the Velocity plugin with an OAuth2 service token; they are
-// relayed through the HRPAuth core under the /yggdrasil-api prefix.
+// relayed through the Armorial core under the /yggdrasil-api prefix.
 type AdminController struct {
 	adminSvc   *services.AdminService
 	coreClient *clients.CoreClient

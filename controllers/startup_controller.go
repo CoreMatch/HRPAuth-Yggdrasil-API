@@ -64,8 +64,8 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 	return map[string]interface{}{
 		"version": config.ConfigVersion,
 		"site": map[string]interface{}{
-			"name":           "HRPAuth",
-			"implementation": "HRPAuth Yggdrasil API Provider",
+			"name":           "Armorial",
+			"implementation": "Armorial Yggdrasil API Provider",
 			"version":        "1.3.0",
 		},
 		"server": map[string]interface{}{
@@ -111,8 +111,8 @@ func (sc *StartupController) buildDefaultConfig(publicKeyPath, privateKeyPath st
 		},
 		"yggdrasil": map[string]interface{}{
 			"server": map[string]interface{}{
-				"name":                       "HRPAuth",
-				"implementation":             "HRPAuth Yggdrasil API Provider",
+				"name":                       "Armorial",
+				"implementation":             "Armorial Yggdrasil API Provider",
 				"version":                    "1.3.0",
 				"signature_public_key_path":  publicKeyPath,
 				"signature_private_key_path": privateKeyPath,

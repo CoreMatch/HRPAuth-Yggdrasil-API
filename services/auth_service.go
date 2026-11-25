@@ -28,7 +28,7 @@ type AuthService struct {
 var (
 	// ErrUsernameAlreadyBound: the requested username collides with an
 	// account that is not in an open mbe bind window (mbe=0, or already
-	// bound to a different mojang_uuid). HA accounts have priority.
+	// bound to a different mojang_uuid). Armorial accounts have priority.
 	ErrUsernameAlreadyBound = errors.New("username already bound")
 	// ErrInvalidMojangUUID: the supplied mojang_uuid is missing or malformed.
 	ErrInvalidMojangUUID = errors.New("invalid mojang_uuid format")
@@ -203,7 +203,7 @@ func (as *AuthService) ProxyRegister(username, password, mojangUUID string) (*mo
 	var existingProfile models.Profile
 	if err := database.DB.Where("name = ?", username).First(&existingProfile).Error; err == nil {
 		// Username collision: either complete an open mbe bind window or
-		// reject (HA accounts have priority). Restored pre-split semantics
+		// reject (Armorial accounts have priority). Restored pre-split semantics
 		// (HA-ROADMAP §3.4.2.a): mbe=1 + unbound account binds the incoming
 		// mojang_uuid; everything else is username_already_bound.
 		var existingAccount models.Account

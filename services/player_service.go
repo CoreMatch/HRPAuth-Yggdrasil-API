@@ -59,7 +59,7 @@ type GameProfile struct {
 }
 
 // ResolveAccount 通过 Bearer token 解析到本地 accounts 行。
-// token 可以是本仓库的 Yggdrasil AccessToken，也可以是 HRPAuth Core 的 OAuth2 AccessToken。
+// token 可以是本仓库的 Yggdrasil AccessToken，也可以是 Armorial Core 的 OAuth2 AccessToken。
 func (ps *PlayerService) ResolveAccount(bearer string) (*models.Account, error) {
 	bearer = strings.TrimSpace(bearer)
 	if bearer == "" {

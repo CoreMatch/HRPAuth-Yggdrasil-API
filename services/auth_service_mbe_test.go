@@ -100,7 +100,7 @@ func TestProxyRegisterMBEBindCompletesWindow(t *testing.T) {
 	}
 }
 
-// TestProxyRegisterCollisionWithoutMBERejected: mbe=0 keeps HA priority — the
+// TestProxyRegisterCollisionWithoutMBERejected: mbe=0 keeps Armorial priority — the
 // colliding Mojang player is rejected and the account stays untouched.
 func TestProxyRegisterCollisionWithoutMBERejected(t *testing.T) {
 	setupAdminTestDB(t)

@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// RenderedConfigTemplateEnv / RenderedConfigPathEnv are the HA container
+// RenderedConfigTemplateEnv / RenderedConfigPathEnv are the Armorial container
 // convention (see docker-entrypoint.sh): when both are set, the
 // entrypoint re-renders the config from a template plus environment
 // variables on every container start.

@@ -127,7 +127,7 @@ func buildSDKArchive(sdkFS fs.FS) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// UploadSDKPackage uploads the compile-time SDK package to HRPAuth
+// UploadSDKPackage uploads the compile-time SDK package to Armorial
 // asynchronously. If a package with the same name already exists (409),
 // the stale package is deleted and the upload retried once.
 func (sc *StartupController) UploadSDKPackage(sdkFS fs.FS) {
@@ -147,10 +147,10 @@ func (sc *StartupController) UploadSDKPackage(sdkFS fs.FS) {
 		filename := manifest.Name + "-sdk.tar.gz"
 		if err := coreClient.UploadSDKPackage(archive, filename); err != nil {
 			if !errors.Is(err, clients.ErrSDKPackageConflict) {
-				log.Printf("Warning: SDK package upload to HRPAuth failed: %v", err)
+				log.Printf("Warning: SDK package upload to Armorial failed: %v", err)
 				return
 			}
-			log.Printf("SDK package %q already exists on HRPAuth, deleting and re-uploading", manifest.Name)
+			log.Printf("SDK package %q already exists on Armorial, deleting and re-uploading", manifest.Name)
 			if delErr := coreClient.DeleteSDKPackage(manifest.Name); delErr != nil {
 				log.Printf("Warning: Delete stale sdk package failed: %v", delErr)
 				return
@@ -160,6 +160,6 @@ func (sc *StartupController) UploadSDKPackage(sdkFS fs.FS) {
 				return
 			}
 		}
-		log.Printf("SDK package %q (v%s) uploaded to HRPAuth", manifest.Name, manifest.Version)
+		log.Printf("SDK package %q (v%s) uploaded to Armorial", manifest.Name, manifest.Version)
 	}()
 }

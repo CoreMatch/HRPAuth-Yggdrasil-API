@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const rewriteFixture = `# HRPAuth-Yggdrasil-API deployment config
+const rewriteFixture = `# Armorial Yggdrasil API deployment config
 version: "4"
 
 server:
@@ -55,7 +55,7 @@ func TestRewriteClientCredentialsReplacesCoreAPIPair(t *testing.T) {
 	if !strings.Contains(text, "client_id: HRPAuth-Yggdrasil-API") || !strings.Contains(text, "client_secret: low-secret") {
 		t.Errorf("core_api section must carry the new pair, got:\n%s", text)
 	}
-	if !strings.Contains(text, "# HRPAuth-Yggdrasil-API deployment config") {
+	if !strings.Contains(text, "# Armorial Yggdrasil API deployment config") {
 		t.Error("comments must survive the rewrite")
 	}
 	if !strings.Contains(text, "name: HRPAuth-Yggdrasil-API") || !strings.Contains(text, "base_url: http://hrpauth:2778") {

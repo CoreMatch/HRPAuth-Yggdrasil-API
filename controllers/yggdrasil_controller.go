@@ -96,7 +96,7 @@ func (yc *YggdrasilController) Meta(c *gin.Context) {
 	response := gin.H{
 		"status":  "online",
 		"success": true,
-		"message": "HRPAuth Yggdrasil API Provider is running.",
+		"message": "Armorial Yggdrasil API Provider is running.",
 		"site": gin.H{
 			"name":        config.AppConfig.Site.Name,
 			"url":         config.AppConfig.Runtime.SiteURL,
@@ -820,7 +820,7 @@ func (yc *YggdrasilController) LegacySkin(c *gin.Context) {
 		return
 	}
 
-	// The hash is usually the last part of the URL in HRPAuth
+	// The hash is usually the last part of the URL in Armorial
 	parts := strings.Split(skin.URL, "/")
 	hash := parts[len(parts)-1]
 

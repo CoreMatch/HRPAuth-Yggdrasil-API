@@ -53,7 +53,7 @@ type MicrosoftBindRequest struct {
 
 // mapVerificationError maps a MicrosoftService re-verification error onto the
 // (status, code) pair the caller should surface. yggdrasilEnvelope selects the
-// Mojang error shape (authserver exchange) vs the HA business envelope (bind).
+// Mojang error shape (authserver exchange) vs the Armorial business envelope (bind).
 func mapVerificationError(err error) (int, string) {
 	switch {
 	case errors.Is(err, services.ErrMCVerificationFailed):

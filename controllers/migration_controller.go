@@ -130,13 +130,14 @@ func respondMigrationError(c *gin.Context, err error) {
 	switch migrationErr.Code {
 	case "invalid_request", "invalid_email", "invalid_texture_file", "invalid_texture_model":
 		respondError(c, http.StatusBadRequest, migrationErr.Code, "Invalid migration request")
-	case "migration_conflict", "migration_credential_conflict", "migration_profile_conflict", "migration_asset_conflict", "migration_target_not_empty":
+	case "migration_conflict", "migration_credential_conflict", "migration_profile_conflict", "migration_asset_conflict", "migration_target_not_empty",
+		"migration_invalid_state", "migration_rollback_not_allowed":
 		respondError(c, http.StatusConflict, migrationErr.Code, "Migration conflicts with existing state")
 	case "migration_not_found":
 		respondError(c, http.StatusNotFound, migrationErr.Code, "Migration not found")
-	case "migration_commit_failed", "migration_reconcile_failed":
+	case "migration_commit_failed", "migration_reconcile_failed", "migration_rollback_failed":
 		respondError(c, http.StatusInternalServerError, migrationErr.Code, "Migration operation failed")
 	default:
-		respondError(c, http.StatusInternalServerError, CodeInternalError, "Migration commit failed")
+		respondError(c, http.StatusInternalServerError, CodeInternalError, "Migration operation failed")
 	}
 }

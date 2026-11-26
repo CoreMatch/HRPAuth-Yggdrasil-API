@@ -40,7 +40,10 @@ func (c *MigrationCoordinator) Reconcile(ctx context.Context, migrationID string
 		return MigrationStatus{}, err
 	}
 	defer release()
+	return c.reconcileLocked(ctx, migrationID)
+}
 
+func (c *MigrationCoordinator) reconcileLocked(ctx context.Context, migrationID string) (MigrationStatus, error) {
 	var journal models.MigrationJournal
 	if err := c.db.WithContext(ctx).Where("migration_id = ?", migrationID).First(&journal).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -116,6 +119,9 @@ func (c *MigrationCoordinator) acquireOperation(ctx context.Context, migrationID
 	}
 	releaseLock, err := c.store.Acquire(ctx, migrationID)
 	if err != nil {
+		if action == "rollback" && errors.Is(err, ErrMigrationLocked) {
+			return nil, migrationError("migration_invalid_state", action, err)
+		}
 		return nil, migrationError("migration_"+action+"_failed", action, err)
 	}
 	select {
@@ -150,6 +156,9 @@ func (c *MigrationCoordinator) inspectMigrationResources(
 		}
 		if err == nil {
 			present = true
+			if journal.Status == "rolled_back" && journal.CoreCreated {
+				inconsistent = true
+			}
 			expectedEmail := ""
 			if packageAvailable {
 				expectedEmail = packageData.Metadata.Email
@@ -162,7 +171,7 @@ func (c *MigrationCoordinator) inspectMigrationResources(
 				(expectedEmail != "" && user.Email != expectedEmail) {
 				inconsistent = true
 			}
-		} else if !journal.CoreCreated || journal.Status == "committed" || journal.Status == "applying" || journal.Status == "rolled_back" {
+		} else if !journal.CoreCreated || journal.Status == "committed" || journal.Status == "applying" {
 			inconsistent = true
 		}
 		ownership := "preexisting"
@@ -183,10 +192,10 @@ func (c *MigrationCoordinator) inspectMigrationResources(
 		}
 		if err == nil {
 			present = true
-			if account.CoreUserID == nil || *account.CoreUserID != journal.CoreUUID || account.Password != "" || account.SkinSync {
+			if journal.Status == "rolled_back" || !migrationAccountUnmodified(account, journal.CoreUUID) {
 				inconsistent = true
 			}
-		} else if journal.Status == "committed" || journal.Status == "applying" || journal.Status == "rolled_back" {
+		} else if journal.Status == "committed" || journal.Status == "applying" {
 			inconsistent = true
 		}
 		status.Resources = append(status.Resources, MigrationResource{
@@ -207,12 +216,12 @@ func (c *MigrationCoordinator) inspectMigrationResources(
 		if packageAvailable {
 			expectedModel = packageData.Metadata.ProfileModel
 		}
-		if profile.Name != journal.ProfileName ||
+		if journal.Status == "rolled_back" || profile.Name != journal.ProfileName ||
 			(journal.AccountID != nil && uint(profile.AccountID) != *journal.AccountID) ||
 			(expectedModel != "" && profile.Model != expectedModel) {
 			inconsistent = true
 		}
-	} else if journal.Status == "committed" || journal.Status == "applying" || journal.Status == "rolled_back" {
+	} else if journal.Status == "committed" || journal.Status == "applying" {
 		inconsistent = true
 	}
 	status.Resources = append(status.Resources, MigrationResource{

@@ -169,6 +169,7 @@ func main() {
 	internalCtrl := controllers.NewInternalController()
 	migrationCtrl := controllers.NewMigrationController(clients.NewCoreClient(), migrationCoordinator)
 	migrationStatusCtrl := controllers.NewMigrationStatusController(clients.NewCoreClient(), migrationCoordinator)
+	migrationRollbackCtrl := controllers.NewMigrationRollbackController(clients.NewCoreClient(), migrationCoordinator)
 	playerCtrl := controllers.NewPlayerController()
 	adminCtrl := controllers.NewAdminController()
 	microsoftCtrl := controllers.NewMicrosoftController()
@@ -188,6 +189,7 @@ func main() {
 	r.POST("/internal/proxy-register", internalCtrl.ProxyRegister)
 	r.POST("/internal/migrations/commit", migrationCtrl.Commit)
 	r.POST("/internal/migrations/:migration_id/reconcile", migrationStatusCtrl.Reconcile)
+	r.POST("/internal/migrations/:migration_id/rollback", migrationRollbackCtrl.Rollback)
 	r.GET("/internal/heartbeat", internalCtrl.Heartbeat)
 
 	admin := r.Group("/admin")

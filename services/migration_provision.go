@@ -11,6 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrMigrationOwnership = errors.New("migration resource ownership is not verifiable")
+
 func (c *MigrationCoordinator) preflightMigrationTarget(ctx context.Context, journal *models.MigrationJournal, request MigrationCommitRequest) error {
 	db := c.db.WithContext(ctx)
 	var profile models.Profile
@@ -223,8 +225,17 @@ func verifyOwnedMigrationProperties(db *gorm.DB, request MigrationCommitRequest)
 	if expected == nil {
 		expected = make(map[string]string)
 	}
+	textureProperties := 0
 	for _, property := range properties {
 		if property.Name == "textures" {
+			textureProperties++
+			if textureProperties > 1 {
+				return migrationError("migration_target_not_empty", "profile_create", errors.New("journal-owned profile has duplicate textures properties"))
+			}
+			payload, err := decodeMigrationTextures(property.Value)
+			if err != nil || payload.ProfileID != request.Metadata.ProfileUUID || payload.ProfileName != request.Metadata.ProfileName {
+				return migrationError("migration_target_not_empty", "profile_create", errors.New("journal-owned profile textures identity was modified"))
+			}
 			continue
 		}
 		value, exists := expected[property.Name]
@@ -237,6 +248,12 @@ func verifyOwnedMigrationProperties(db *gorm.DB, request MigrationCommitRequest)
 		return migrationError("migration_target_not_empty", "profile_create", errors.New("journal-owned profile is missing legacy properties"))
 	}
 	return nil
+}
+
+func migrationAccountUnmodified(account models.Account, coreUUID string) bool {
+	return account.CoreUserID != nil && *account.CoreUserID == coreUUID && account.Password == "" &&
+		!account.SkinSync && !account.MBE && account.CBH && account.MojangUUID == nil &&
+		account.SkinSyncMark == nil && account.LastSignAt == nil
 }
 
 func (c *MigrationCoordinator) compensateLocalResources(ctx context.Context, journal *models.MigrationJournal, request MigrationCommitRequest) error {
@@ -253,8 +270,8 @@ func (c *MigrationCoordinator) compensateLocalResources(ctx context.Context, jou
 			}
 			accountExists = false
 		}
-		if accountExists && (account.CoreUserID == nil || *account.CoreUserID != journal.CoreUUID || account.Password != "" || account.SkinSync) {
-			return errors.New("journal-owned account identity or migration settings changed")
+		if accountExists && !migrationAccountUnmodified(account, journal.CoreUUID) {
+			return fmt.Errorf("%w: journal-owned account identity or migration settings changed", ErrMigrationOwnership)
 		}
 		var profile models.Profile
 		profileExists := false
@@ -265,7 +282,7 @@ func (c *MigrationCoordinator) compensateLocalResources(ctx context.Context, jou
 		} else {
 			profileExists = true
 			if profile.Name != journal.ProfileName || profile.Model != request.Metadata.ProfileModel {
-				return errors.New("journal-owned profile was modified")
+				return fmt.Errorf("%w: journal-owned profile was modified", ErrMigrationOwnership)
 			}
 		}
 		if accountExists || profileExists {
@@ -279,7 +296,7 @@ func (c *MigrationCoordinator) compensateLocalResources(ctx context.Context, jou
 				return err
 			}
 			if profileCount > 1 {
-				return errors.New("migration account has additional profiles")
+				return fmt.Errorf("%w: migration account has additional profiles", ErrMigrationOwnership)
 			}
 		}
 		if err := tx.Where("account_id = ?", accountID).Delete(&models.Token{}).Error; err != nil {

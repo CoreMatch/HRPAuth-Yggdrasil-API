@@ -270,33 +270,38 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 		return nil, fmt.Errorf("profile not owned by user")
 	}
 
+	_, warnings, err := ts.applyTexture(profileID, textureType, model, fileData)
+	return warnings, err
+}
+
+func (ts *TextureService) applyTexture(profileID, textureType, model string, fileData []byte) (string, []string, error) {
 	validated, err := ts.ValidateTexture(bytes.NewReader(fileData), textureType, model)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	var avatarData []byte
 	if textureType == "skin" {
 		avatarData, err = generateSkinAvatar(validated.Data)
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
 	}
 
 	unlock, err := acquireTextureStorageLock()
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	defer unlock()
 
 	hash := ts.CalculateHash(validated.Data)
 
 	if err := ts.SaveTexture(validated.Data, hash); err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	if textureType == "skin" {
 		if err := ts.SavePreview(avatarData, avatarFileName(hash)); err != nil {
-			return nil, fmt.Errorf("failed to save skin avatar: %w", err)
+			return "", nil, fmt.Errorf("failed to save skin avatar: %w", err)
 		}
 	}
 
@@ -317,11 +322,11 @@ func (ts *TextureService) UploadTexture(accessToken, profileID, textureType, mod
 	textureURL := callbackURL + "/textures/" + hash
 
 	if err := ts.UpdateProfileTexture(profileID, textureType, textureURL, model); err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	warnings := append(validated.Notices, validated.Warnings...)
-	return warnings, nil
+	return hash, warnings, nil
 }
 
 func (ts *TextureService) UpdateProfileTexture(profileID, textureType, textureURL, model string) error {
@@ -598,7 +603,9 @@ func (ts *TextureService) GetProfileProperties(profileID string, profileName str
 
 	for i := range props {
 		if props[i].Name == "textures" {
-			ts.RewriteTexturesProperty(&props[i])
+			if err := ts.RewriteTexturesProperty(&props[i]); err != nil {
+				return nil, fmt.Errorf("failed to rewrite textures property: %w", err)
+			}
 		}
 	}
 

@@ -241,11 +241,21 @@ func (yc *YggdrasilController) Authenticate(c *gin.Context) {
 	}
 
 	if req.RequestUser {
+		properties, err := yc.textureService.GetProfileProperties(selectedProfile.ID, selectedProfile.Name, true)
+		if err != nil {
+			log.Printf("[YGG-BIZ] request_id=%s action=authenticate result=properties_failed profile=%s err=%v", c.GetString("request_id"), selectedProfile.ID, err)
+			sendYggdrasilError(c, "ForbiddenOperationException", "Failed to load user properties.", http.StatusInternalServerError)
+			return
+		}
+		userProperties := make([]gin.H, 0, len(properties))
+		for _, property := range properties {
+			userProperties = append(userProperties, gin.H{"name": property.Name, "value": property.Value})
+		}
 		response["user"] = gin.H{
-			"id":         user.UUID,
+			"id":         selectedProfile.ID,
 			"email":      user.Email,
 			"username":   user.Username,
-			"properties": []gin.H{},
+			"properties": userProperties,
 		}
 	}
 

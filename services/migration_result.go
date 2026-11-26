@@ -106,7 +106,9 @@ func validateMigrationResult(result MigrationCommitResult) error {
 		result.CommittedAt.IsZero() || result.Session.AccessToken == "" || result.Session.ClientToken == "" ||
 		result.Session.SelectedProfile.ID != result.ProfileID || result.Session.SelectedProfile.Name == "" ||
 		result.User.ID != result.ProfileID || len(result.Session.AvailableProfiles) != 1 ||
-		result.Session.AvailableProfiles[0].ID != result.ProfileID {
+		result.Session.AvailableProfiles[0].ID != result.ProfileID ||
+		result.Session.AvailableProfiles[0].Name != result.Session.SelectedProfile.Name ||
+		result.Session.AvailableProfiles[0].Model != result.Session.SelectedProfile.Model {
 		return fmt.Errorf("%w: invalid committed result", ErrMigrationResultNotFound)
 	}
 	for _, asset := range []MigrationAssetResult{result.Assets.Skin, result.Assets.Cape} {

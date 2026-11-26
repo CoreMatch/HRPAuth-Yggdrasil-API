@@ -114,6 +114,25 @@ func main() {
 	}
 
 	redis.Init()
+	migrationStore, err := services.NewRedisMigrationStore(redis.Client, services.MigrationStoreOptions{})
+	if err != nil {
+		log.Fatalf("Failed to initialize migration store: %v", err)
+	}
+	migrationResultStore, err := services.NewRedisMigrationResultStore(redis.Client, 0)
+	if err != nil {
+		log.Fatalf("Failed to initialize migration result store: %v", err)
+	}
+	migrationCoordinator, err := services.NewMigrationCoordinator(
+		clients.NewCoreClient(),
+		migrationStore,
+		migrationResultStore,
+		services.NewAuthService(),
+		services.NewTextureMigrationVerifier(services.NewTextureService()),
+		database.DB,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize migration coordinator: %v", err)
+	}
 
 	// Background cleanup tasks
 	tokenCleanupCtrl := controllers.NewTokenCleanupController()
@@ -148,6 +167,7 @@ func main() {
 	yggdrasilCtrl := controllers.NewYggdrasilController()
 	registerCtrl := controllers.NewRegisterController()
 	internalCtrl := controllers.NewInternalController()
+	migrationCtrl := controllers.NewMigrationController(clients.NewCoreClient(), migrationCoordinator)
 	playerCtrl := controllers.NewPlayerController()
 	adminCtrl := controllers.NewAdminController()
 	microsoftCtrl := controllers.NewMicrosoftController()
@@ -165,6 +185,7 @@ func main() {
 	})
 	r.POST("/register", registerCtrl.Register)
 	r.POST("/internal/proxy-register", internalCtrl.ProxyRegister)
+	r.POST("/internal/migrations/commit", migrationCtrl.Commit)
 	r.GET("/internal/heartbeat", internalCtrl.Heartbeat)
 
 	admin := r.Group("/admin")

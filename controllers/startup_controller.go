@@ -707,6 +707,7 @@ func buildRelayRules(base string, prefix string) []clients.RelayRule {
 		"/skins",
 		"/minecraftservices",
 		"/register",
+		"/internal/migrations",
 		"/player",
 		"/mojang",
 		"/admin",

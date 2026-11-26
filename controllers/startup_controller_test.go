@@ -174,6 +174,7 @@ func TestBuildRelayRulesAddsPrefixToAllDestinations(t *testing.T) {
 		{Dest: "/yggdrasil-api/skins", Source: "http://localhost:2770/skins"},
 		{Dest: "/yggdrasil-api/minecraftservices", Source: "http://localhost:2770/minecraftservices"},
 		{Dest: "/yggdrasil-api/register", Source: "http://localhost:2770/register"},
+		{Dest: "/yggdrasil-api/internal/migrations", Source: "http://localhost:2770/internal/migrations"},
 		{Dest: "/yggdrasil-api/player", Source: "http://localhost:2770/player"},
 		{Dest: "/yggdrasil-api/mojang", Source: "http://localhost:2770/mojang"},
 		{Dest: "/yggdrasil-api/admin", Source: "http://localhost:2770/admin"},

@@ -95,6 +95,30 @@ func controllerMultipart(t *testing.T, metadata services.MigrationMetadata, extr
 	return body.Bytes(), writer.FormDataContentType()
 }
 
+func controllerMultipartAsset(t *testing.T, metadata services.MigrationMetadata, name string, data []byte) ([]byte, string) {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	encoded, err := json.Marshal(metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.WriteField("metadata", string(encoded)); err != nil {
+		t.Fatal(err)
+	}
+	part, err := writer.CreateFormFile(name, name+".png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return body.Bytes(), writer.FormDataContentType()
+}
+
 func performMigrationRequest(router *gin.Engine, body []byte, contentType, idempotencyKey string) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(http.MethodPost, "/internal/migrations/commit", bytes.NewReader(body))
 	request.Header.Set("Content-Type", contentType)
@@ -198,6 +222,16 @@ func TestMigrationControllerMapsCommitErrors(t *testing.T) {
 				t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 			}
 		})
+	}
+}
+
+func TestMigrationControllerRejectsOversizeAsset(t *testing.T) {
+	committer := &controllerMigrationCommitter{}
+	router, _ := setupMigrationController(t, committer)
+	body, contentType := controllerMultipartAsset(t, controllerMetadata(), "skin", bytes.Repeat([]byte{'x'}, int(migrationAssetMaxBytes)+1))
+	response := performMigrationRequest(router, body, contentType, controllerMigrationID)
+	if response.Code != http.StatusRequestEntityTooLarge || committer.calls != 0 {
+		t.Fatalf("status=%d calls=%d body=%s", response.Code, committer.calls, response.Body.String())
 	}
 }
 

@@ -48,6 +48,14 @@ func (mc *MigrationController) Commit(c *gin.Context) {
 		return
 	}
 	defer c.Request.MultipartForm.RemoveAll()
+	for _, headers := range c.Request.MultipartForm.File {
+		for _, header := range headers {
+			if header.Size > migrationAssetMaxBytes {
+				respondError(c, http.StatusRequestEntityTooLarge, CodeInvalidRequest, "Migration asset exceeds size limit")
+				return
+			}
+		}
+	}
 
 	metadata, skin, cape, ok := readMigrationParts(c.Request.MultipartForm)
 	if !ok {

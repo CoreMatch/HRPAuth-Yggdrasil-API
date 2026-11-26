@@ -366,7 +366,7 @@ func (s *prefixedSource) wrapReader(r io.ReadCloser) io.ReadCloser {
 
 	tables := []string{
 		"accounts", "profiles", "profile_properties", "sessions", "tokens", "profile_keys",
-		"texture_list_skin", "texture_list_cape",
+		"texture_list_skin", "texture_list_cape", "migration_journal",
 	}
 
 	sContent := string(content)

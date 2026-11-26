@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `migration_journal` (
+  `migration_id` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `digest` char(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `stage` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `failure_code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `core_uid` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `core_uuid` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `core_created` tinyint(1) NOT NULL DEFAULT 0,
+  `account_id` bigint unsigned DEFAULT NULL,
+  `profile_id` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `profile_name` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `committed_at` datetime(3) DEFAULT NULL,
+  `rolled_back_at` datetime(3) DEFAULT NULL,
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`migration_id`),
+  KEY `idx_migration_journal_profile_id` (`profile_id`),
+  KEY `idx_migration_journal_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

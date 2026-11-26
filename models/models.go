@@ -110,6 +110,28 @@ func (ProfileProperty) TableName() string {
 	return config.AppConfig.Database.TablePrefix + "profile_properties"
 }
 
+type MigrationJournal struct {
+	MigrationID  string     `gorm:"type:varchar(36);primaryKey;column:migration_id"`
+	Digest       string     `gorm:"type:char(64);column:digest"`
+	Status       string     `gorm:"type:varchar(32);column:status"`
+	Stage        string     `gorm:"type:varchar(32);column:stage"`
+	FailureCode  string     `gorm:"type:varchar(64);column:failure_code"`
+	CoreUID      string     `gorm:"type:varchar(32);column:core_uid"`
+	CoreUUID     string     `gorm:"type:varchar(32);column:core_uuid"`
+	CoreCreated  bool       `gorm:"column:core_created"`
+	AccountID    *uint      `gorm:"column:account_id"`
+	ProfileID    string     `gorm:"type:varchar(32);column:profile_id"`
+	ProfileName  string     `gorm:"type:varchar(30);column:profile_name"`
+	CommittedAt  *time.Time `gorm:"column:committed_at"`
+	RolledBackAt *time.Time `gorm:"column:rolled_back_at"`
+	CreatedAt    time.Time  `gorm:"column:created_at"`
+	UpdatedAt    time.Time  `gorm:"column:updated_at"`
+}
+
+func (MigrationJournal) TableName() string {
+	return config.AppConfig.Database.TablePrefix + "migration_journal"
+}
+
 // TextureInfo represents the texture details in Yggdrasil property.
 type TextureInfo struct {
 	URL      string                 `json:"url"`

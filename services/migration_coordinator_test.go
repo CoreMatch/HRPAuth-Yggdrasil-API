@@ -113,10 +113,12 @@ func (s *coordinatorMemoryResults) Delete(ctx context.Context, migrationID strin
 }
 
 type coordinatorCoreState struct {
-	mu          sync.Mutex
-	created     bool
-	claimCalls  int
-	verifyCalls int
+	mu           sync.Mutex
+	created      bool
+	claimCalls   int
+	verifyCalls  int
+	userMissing  bool
+	userMismatch bool
 }
 
 type coordinatorVerifier struct {
@@ -271,6 +273,19 @@ func setupMigrationCoordinator(t *testing.T) (*MigrationCoordinator, *coordinato
 				return
 			}
 			_ = json.NewEncoder(w).Encode(models.User{UID: 7, UUID: coordinatorCoreUUID, Email: "migration-" + coordinatorMigrationID + "@placeholder.invalid", Username: "Player"})
+		case "/services/users/" + coordinatorCoreUUID:
+			if state.userMissing {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"success":false,"code":"user_not_found"}`))
+				return
+			}
+			username := "Player"
+			if state.userMismatch {
+				username = "Other"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": map[string]any{
+				"uid": 7, "uuid": coordinatorCoreUUID, "email": "migration-" + coordinatorMigrationID + "@placeholder.invalid", "username": username,
+			}})
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

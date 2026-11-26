@@ -141,6 +141,60 @@ func TestVerifyCredentialsContextHonorsCancellation(t *testing.T) {
 	}
 }
 
+func TestInspectMigrationUser(t *testing.T) {
+	const uuid = "0123456789abcdef0123456789abcdef"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/services/users/"+uuid {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"success":true,"data":{"uid":7,"uuid":"0123456789abcdef0123456789abcdef","email":"player@example.com","username":"Player"}}`))
+	}))
+	defer server.Close()
+	client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+	user, err := client.InspectMigrationUser(context.Background(), uuid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.UID != 7 || user.UUID != uuid || user.Email != "player@example.com" || user.Username != "Player" {
+		t.Fatalf("unexpected user: %+v", user)
+	}
+}
+
+func TestInspectMigrationUserErrors(t *testing.T) {
+	const uuid = "0123456789abcdef0123456789abcdef"
+	tests := []struct {
+		name   string
+		status int
+		body   string
+		want   error
+	}{
+		{"missing", http.StatusNotFound, `{"success":false,"code":"user_not_found"}`, ErrCoreUserNotFound},
+		{"upstream", http.StatusInternalServerError, `{"success":false,"code":"internal_error"}`, nil},
+		{"wrong identity", http.StatusOK, `{"success":true,"data":{"uid":7,"uuid":"1123456789abcdef0123456789abcdef","email":"player@example.com","username":"Player"}}`, ErrInvalidCoreResponse},
+		{"malformed", http.StatusOK, `not-json`, ErrInvalidCoreResponse},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(test.status)
+				_, _ = w.Write([]byte(test.body))
+			}))
+			defer server.Close()
+			client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+			_, err := client.InspectMigrationUser(context.Background(), uuid)
+			if test.want != nil && !errors.Is(err, test.want) {
+				t.Fatalf("error = %v, want %v", err, test.want)
+			}
+			if test.want == nil {
+				var apiError *CoreAPIError
+				if !errors.As(err, &apiError) || apiError.StatusCode != test.status {
+					t.Fatalf("error = %v, want CoreAPIError status %d", err, test.status)
+				}
+			}
+		})
+	}
+}
+
 func TestResolveTokenContextServiceScopes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Content-Type"), "application/json") {

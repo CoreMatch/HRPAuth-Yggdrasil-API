@@ -3,6 +3,7 @@ package clients
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +33,10 @@ func NewCoreClient() *CoreClient {
 }
 
 func (c *CoreClient) doRequest(method, path string, body interface{}, result interface{}) error {
+	return c.doRequestContext(context.Background(), method, path, body, result)
+}
+
+func (c *CoreClient) doRequestContext(ctx context.Context, method, path string, body interface{}, result interface{}) error {
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
@@ -41,7 +46,7 @@ func (c *CoreClient) doRequest(method, path string, body interface{}, result int
 		bodyReader = bytes.NewBuffer(jsonBody)
 	}
 
-	req, err := http.NewRequest(method, c.BaseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, bodyReader)
 	if err != nil {
 		return err
 	}
@@ -59,7 +64,7 @@ func (c *CoreClient) doRequest(method, path string, body interface{}, result int
 	}
 
 	if result != nil {
-		return json.NewDecoder(resp.Body).Decode(result)
+		return json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(result)
 	}
 
 	return nil
@@ -70,6 +75,10 @@ func (c *CoreClient) doRequest(method, path string, body interface{}, result int
 // transport failures or undecodable bodies; HTTP-level rejection is carried
 // by the decoded envelope (Success=false).
 func (c *CoreClient) doRequestWithCode(method, path string, body interface{}, result interface{}) error {
+	return c.doRequestContextWithCode(context.Background(), method, path, body, result)
+}
+
+func (c *CoreClient) doRequestContextWithCode(ctx context.Context, method, path string, body interface{}, result interface{}) error {
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
@@ -79,25 +88,25 @@ func (c *CoreClient) doRequestWithCode(method, path string, body interface{}, re
 		bodyReader = bytes.NewBuffer(jsonBody)
 	}
 
-	req, err := http.NewRequest(method, c.BaseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, bodyReader)
 	if err != nil {
 		return err
 	}
-
 	req.Header.Set("Content-Type", "application/json")
-
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
 		return err
 	}
+	if len(data) > 1<<20 {
+		return ErrInvalidCoreResponse
+	}
 	if err := json.Unmarshal(data, result); err != nil {
-		return fmt.Errorf("core api returned status %d", resp.StatusCode)
+		return fmt.Errorf("%w: status %d", ErrInvalidCoreResponse, resp.StatusCode)
 	}
 	return nil
 }
@@ -152,6 +161,10 @@ var ErrUsernameAlreadyBound = errors.New("username already bound")
 // ResolveToken resolves any OAuth2 access token (user or service) via the
 // core's /internal/verify-token.
 func (c *CoreClient) ResolveToken(token string) (*TokenContext, error) {
+	return c.ResolveTokenContext(context.Background(), token)
+}
+
+func (c *CoreClient) ResolveTokenContext(ctx context.Context, token string) (*TokenContext, error) {
 	var resp struct {
 		Success bool `json:"success"`
 		Data    struct {
@@ -166,29 +179,29 @@ func (c *CoreClient) ResolveToken(token string) (*TokenContext, error) {
 	body := map[string]string{
 		"token": token,
 	}
-	if err := c.doRequest("POST", "/internal/verify-token", body, &resp); err != nil {
+	if err := c.doRequestContext(ctx, "POST", "/internal/verify-token", body, &resp); err != nil {
 		return nil, err
 	}
 	if !resp.Success {
 		return nil, errors.New("token verification failed")
 	}
 
-	ctx := &TokenContext{
+	tokenContext := &TokenContext{
 		IsService: resp.Data.IsService,
 		Scopes:    resp.Data.Scopes,
 	}
-	if !ctx.IsService {
+	if !tokenContext.IsService {
 		if resp.Data.UUID == "" {
 			return nil, errors.New("token verification failed")
 		}
-		ctx.User = &models.User{
+		tokenContext.User = &models.User{
 			UID:      resp.Data.UID,
 			UUID:     resp.Data.UUID,
 			Email:    resp.Data.Email,
 			Username: resp.Data.Username,
 		}
 	}
-	return ctx, nil
+	return tokenContext, nil
 }
 
 // HasScope reports whether the scope set contains the required scope.
@@ -232,6 +245,119 @@ func (c *CoreClient) ClaimUser(username, email, password string) (*models.User, 
 		return nil, fmt.Errorf("claim rejected by core: %s", resp.Code)
 	}
 	return &models.User{UID: resp.Data.UID, UUID: resp.Data.UUID}, nil
+}
+
+var (
+	ErrInvalidCoreResponse   = errors.New("invalid core response")
+	ErrMigrationConflict     = errors.New("migration conflict")
+	ErrMigrationInvalidState = errors.New("migration invalid state")
+)
+
+type CoreAPIError struct {
+	StatusCode int
+	Code       string
+}
+
+func (e *CoreAPIError) Error() string {
+	return fmt.Sprintf("core api returned status %d (%s)", e.StatusCode, e.Code)
+}
+
+type MigrationUserClaim struct {
+	UID     uint
+	UUID    string
+	Email   string
+	Created bool
+}
+
+type migrationClaimRequest struct {
+	Username    string  `json:"username"`
+	Email       *string `json:"email,omitempty"`
+	Password    string  `json:"password"`
+	MigrationID string  `json:"migration_id"`
+	EmailMode   string  `json:"email_mode"`
+}
+
+func (c *CoreClient) ClaimMigrationUser(ctx context.Context, username, migrationID, password string, email *string) (*MigrationUserClaim, error) {
+	mode := "placeholder"
+	if email != nil {
+		mode = "provided"
+	}
+	body := migrationClaimRequest{
+		Username: username, Email: email, Password: password, MigrationID: migrationID, EmailMode: mode,
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/internal/claim-user", nil)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	request.Body = io.NopCloser(bytes.NewReader(encoded))
+	request.ContentLength = int64(len(encoded))
+	request.Header.Set("Content-Type", "application/json")
+	response, err := c.HTTPClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(payload) > 1<<20 {
+		return nil, ErrInvalidCoreResponse
+	}
+	var envelope struct {
+		Success bool   `json:"success"`
+		Code    string `json:"code"`
+		Data    *struct {
+			UID     uint   `json:"uid"`
+			UUID    string `json:"uuid"`
+			Email   string `json:"email"`
+			Created *bool  `json:"created"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return nil, fmt.Errorf("%w: status %d", ErrInvalidCoreResponse, response.StatusCode)
+	}
+	if response.StatusCode != http.StatusOK || !envelope.Success {
+		code := envelope.Code
+		if code == "" {
+			code = "migration_commit_failed"
+		}
+		switch code {
+		case "migration_conflict":
+			return nil, ErrMigrationConflict
+		case "migration_invalid_state":
+			return nil, ErrMigrationInvalidState
+		case "username_already_bound":
+			return nil, ErrUsernameAlreadyBound
+		case "email_already_registered":
+			return nil, ErrEmailAlreadyRegistered
+		default:
+			return nil, &CoreAPIError{StatusCode: response.StatusCode, Code: code}
+		}
+	}
+	data := envelope.Data
+	if data == nil || data.UID == 0 || !validCoreUUID(data.UUID) || data.Email == "" || data.Created == nil {
+		return nil, ErrInvalidCoreResponse
+	}
+	if email != nil && !strings.EqualFold(data.Email, *email) {
+		return nil, ErrInvalidCoreResponse
+	}
+	if email == nil && data.Email != "migration-"+migrationID+"@placeholder.invalid" {
+		return nil, ErrInvalidCoreResponse
+	}
+	return &MigrationUserClaim{UID: data.UID, UUID: data.UUID, Email: data.Email, Created: *data.Created}, nil
+}
+
+func validCoreUUID(value string) bool {
+	if len(value) != 32 {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 type UserInfoResponse struct {

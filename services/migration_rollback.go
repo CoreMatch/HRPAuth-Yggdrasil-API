@@ -66,6 +66,15 @@ func (c *MigrationCoordinator) Rollback(ctx context.Context, migrationID string)
 		}
 		return MigrationStatus{}, migrationError("migration_rollback_failed", "rollback", err)
 	}
+	if journal.CoreCreated {
+		if _, err := c.core.RollbackMigration(ctx, migrationID); err != nil {
+			if errors.Is(err, clients.ErrMigrationRollbackNotAllowed) || errors.Is(err, clients.ErrMigrationNotFound) ||
+				errors.Is(err, clients.ErrMigrationInvalidState) || errors.Is(err, clients.ErrInvalidCoreResponse) {
+				return MigrationStatus{}, migrationError("migration_rollback_not_allowed", "rollback", err)
+			}
+			return MigrationStatus{}, migrationError("migration_rollback_failed", "rollback", err)
+		}
+	}
 
 	now := time.Now().UTC()
 	result := c.db.WithContext(ctx).Model(&models.MigrationJournal{}).Where("migration_id = ? AND status <> ?", migrationID, "committed").Updates(map[string]interface{}{
@@ -98,22 +107,47 @@ func (c *MigrationCoordinator) Rollback(ctx context.Context, migrationID string)
 }
 
 func (c *MigrationCoordinator) verifyRollbackCoreOwnership(ctx context.Context, journal *models.MigrationJournal, packageData StagedMigrationPackage) error {
-	if journal.CoreCreated {
-		return migrationError("migration_rollback_not_allowed", "rollback", errors.New("Core compensation is not available for migration-created users"))
+	if journal.CoreCreated && journal.CoreUUID == "" {
+		return migrationError("migration_rollback_not_allowed", "rollback", errors.New("migration-created Core identity is missing"))
 	}
 	if journal.CoreUUID == "" {
 		return nil
 	}
+	expectedEmail := packageData.Metadata.Email
+	if expectedEmail == "" {
+		expectedEmail = "migration-" + journal.MigrationID + "@placeholder.invalid"
+	}
+	if journal.CoreCreated {
+		status, err := c.core.InspectMigration(ctx, journal.MigrationID)
+		if err != nil {
+			if errors.Is(err, clients.ErrMigrationNotFound) || errors.Is(err, clients.ErrInvalidCoreResponse) {
+				return migrationError("migration_rollback_not_allowed", "rollback", err)
+			}
+			return migrationError("migration_rollback_failed", "rollback", err)
+		}
+		if status.Ownership != "created_by_migration" || status.User == nil ||
+			strconv.FormatUint(uint64(status.User.UID), 10) != journal.CoreUID ||
+			!strings.EqualFold(status.User.UUID, journal.CoreUUID) || status.User.Username != journal.ProfileName || status.User.Email != expectedEmail {
+			return migrationError("migration_rollback_not_allowed", "rollback", errors.New("Core migration ownership does not match journal"))
+		}
+		if status.Status == "rolled_back" {
+			if status.User.Present {
+				return migrationError("migration_rollback_not_allowed", "rollback", errors.New("compensated Core user is still present"))
+			}
+			return nil
+		}
+		if status.Status != "created" {
+			return migrationError("migration_rollback_not_allowed", "rollback", errors.New("Core migration ownership is not compensable"))
+		}
+		return nil
+	}
+
 	user, err := c.core.InspectMigrationUser(ctx, journal.CoreUUID)
 	if err != nil {
 		if errors.Is(err, clients.ErrCoreUserNotFound) || errors.Is(err, clients.ErrInvalidCoreResponse) {
 			return migrationError("migration_rollback_not_allowed", "rollback", err)
 		}
 		return migrationError("migration_rollback_failed", "rollback", err)
-	}
-	expectedEmail := packageData.Metadata.Email
-	if expectedEmail == "" {
-		expectedEmail = "migration-" + journal.MigrationID + "@placeholder.invalid"
 	}
 	if journal.CoreUID == "" || strconv.FormatUint(uint64(user.UID), 10) != journal.CoreUID ||
 		!strings.EqualFold(user.UUID, journal.CoreUUID) || user.Username != journal.ProfileName || user.Email != expectedEmail {

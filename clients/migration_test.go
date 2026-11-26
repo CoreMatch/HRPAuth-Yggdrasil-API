@@ -212,3 +212,128 @@ func TestResolveTokenContextServiceScopes(t *testing.T) {
 		t.Fatalf("unexpected token context: %+v", token)
 	}
 }
+
+func TestInspectMigration(t *testing.T) {
+	const migrationID = "123e4567-e89b-12d3-a456-426614174000"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/internal/migrations/"+migrationID {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"success":true,"data":{"migration_id":"123e4567-e89b-12d3-a456-426614174000","status":"created","ownership":"created_by_migration","user":{"uid":7,"uuid":"0123456789abcdef0123456789abcdef","email":"player@example.com","username":"Player","present":true},"updated_at":"2026-11-26T00:00:00Z"}}`))
+	}))
+	defer server.Close()
+	client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+	status, err := client.InspectMigration(context.Background(), migrationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Status != "created" || status.Ownership != "created_by_migration" || status.User == nil || !status.User.Present || status.UpdatedAt.IsZero() {
+		t.Fatalf("unexpected status: %+v", status)
+	}
+}
+
+func TestRollbackMigration(t *testing.T) {
+	const migrationID = "123e4567-e89b-12d3-a456-426614174000"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/internal/migrations/"+migrationID+"/rollback" {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"success":true,"data":{"migration_id":"123e4567-e89b-12d3-a456-426614174000","status":"rolled_back","uid":7}}`))
+	}))
+	defer server.Close()
+	client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+	result, err := client.RollbackMigration(context.Background(), migrationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "rolled_back" || result.UID != 7 {
+		t.Fatalf("unexpected rollback: %+v", result)
+	}
+}
+
+func TestCoreMigrationClientErrors(t *testing.T) {
+	const migrationID = "123e4567-e89b-12d3-a456-426614174000"
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		status int
+		body   string
+		want   error
+	}{
+		{"inspect missing", http.MethodGet, "/internal/migrations/" + migrationID, http.StatusNotFound, `{"success":false,"code":"migration_not_found"}`, ErrMigrationNotFound},
+		{"inspect upstream", http.MethodGet, "/internal/migrations/" + migrationID, http.StatusInternalServerError, `{"success":false,"code":"internal_error"}`, nil},
+		{"inspect malformed", http.MethodGet, "/internal/migrations/" + migrationID, http.StatusOK, `not-json`, ErrInvalidCoreResponse},
+		{"rollback missing", http.MethodPost, "/internal/migrations/" + migrationID + "/rollback", http.StatusNotFound, `{"success":false,"code":"migration_not_found"}`, ErrMigrationNotFound},
+		{"rollback forbidden", http.MethodPost, "/internal/migrations/" + migrationID + "/rollback", http.StatusConflict, `{"success":false,"code":"migration_rollback_not_allowed"}`, ErrMigrationRollbackNotAllowed},
+		{"rollback invalid state", http.MethodPost, "/internal/migrations/" + migrationID + "/rollback", http.StatusConflict, `{"success":false,"code":"migration_invalid_state"}`, ErrMigrationInvalidState},
+		{"rollback upstream", http.MethodPost, "/internal/migrations/" + migrationID + "/rollback", http.StatusInternalServerError, `{"success":false,"code":"internal_error"}`, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != test.method || r.URL.Path != test.path {
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+				}
+				w.WriteHeader(test.status)
+				_, _ = w.Write([]byte(test.body))
+			}))
+			defer server.Close()
+			client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+			var err error
+			if test.method == http.MethodGet {
+				_, err = client.InspectMigration(context.Background(), migrationID)
+			} else {
+				_, err = client.RollbackMigration(context.Background(), migrationID)
+			}
+			if test.want != nil && !errors.Is(err, test.want) {
+				t.Fatalf("error = %v, want %v", err, test.want)
+			}
+			if test.want == nil {
+				var apiError *CoreAPIError
+				if !errors.As(err, &apiError) || apiError.StatusCode != test.status {
+					t.Fatalf("error = %v, want CoreAPIError status %d", err, test.status)
+				}
+			}
+		})
+	}
+}
+
+func TestCoreMigrationClientsHonorCancellation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+	client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	migrationID := "123e4567-e89b-12d3-a456-426614174000"
+	if _, err := client.InspectMigration(ctx, migrationID); !errors.Is(err, context.Canceled) {
+		t.Fatalf("inspect error = %v, want context cancellation", err)
+	}
+	if _, err := client.RollbackMigration(ctx, migrationID); !errors.Is(err, context.Canceled) {
+		t.Fatalf("rollback error = %v, want context cancellation", err)
+	}
+}
+
+func TestCoreMigrationClientRejectsInvalidID(t *testing.T) {
+	client := &CoreClient{}
+	if _, err := client.InspectMigration(context.Background(), "not-a-uuid"); !errors.Is(err, ErrInvalidCoreResponse) {
+		t.Fatalf("inspect error = %v", err)
+	}
+	if _, err := client.RollbackMigration(context.Background(), "not-a-uuid"); !errors.Is(err, ErrInvalidCoreResponse) {
+		t.Fatalf("rollback error = %v", err)
+	}
+}
+
+func TestInspectMigrationUpdatedAtIsRequired(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"success":true,"data":{"migration_id":"123e4567-e89b-12d3-a456-426614174000","status":"created","ownership":"created_by_migration","updated_at":"0001-01-01T00:00:00Z"}}`))
+	}))
+	defer server.Close()
+	client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+	_, err := client.InspectMigration(context.Background(), "123e4567-e89b-12d3-a456-426614174000")
+	if !errors.Is(err, ErrInvalidCoreResponse) {
+		t.Fatalf("error = %v, want ErrInvalidCoreResponse", err)
+	}
+}

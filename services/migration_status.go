@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lnb/HRPAuth-Yggdrasil-API/clients"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
 	"gorm.io/gorm"
 )
@@ -153,16 +152,19 @@ func (c *MigrationCoordinator) inspectMigrationResources(
 	}
 	inconsistent := false
 	if journal.CoreUUID != "" {
-		present := false
-		user, err := c.core.InspectMigrationUser(ctx, journal.CoreUUID)
-		if err != nil && !errors.Is(err, clients.ErrCoreUserNotFound) {
+		coreStatus, err := c.core.InspectMigration(ctx, journal.MigrationID)
+		if err != nil {
 			return MigrationStatus{}, false, migrationError("migration_reconcile_failed", "reconcile", err)
 		}
-		if err == nil {
-			present = true
-			if journal.Status == "rolled_back" && journal.CoreCreated {
-				inconsistent = true
-			}
+		present := coreStatus.User != nil && coreStatus.User.Present
+		expectedOwnership := "preexisting"
+		if journal.CoreCreated {
+			expectedOwnership = "created_by_migration"
+		}
+		if coreStatus.Ownership != expectedOwnership {
+			inconsistent = true
+		}
+		if coreStatus.User != nil {
 			expectedEmail := ""
 			if packageAvailable {
 				expectedEmail = packageData.Metadata.Email
@@ -170,20 +172,27 @@ func (c *MigrationCoordinator) inspectMigrationResources(
 					expectedEmail = "migration-" + journal.MigrationID + "@placeholder.invalid"
 				}
 			}
-			if strconv.FormatUint(uint64(user.UID), 10) != journal.CoreUID ||
-				!strings.EqualFold(user.UUID, journal.CoreUUID) || user.Username != journal.ProfileName ||
-				(expectedEmail != "" && user.Email != expectedEmail) {
+			if strconv.FormatUint(uint64(coreStatus.User.UID), 10) != journal.CoreUID ||
+				!strings.EqualFold(coreStatus.User.UUID, journal.CoreUUID) || coreStatus.User.Username != journal.ProfileName ||
+				(expectedEmail != "" && coreStatus.User.Email != expectedEmail) {
 				inconsistent = true
 			}
-		} else if !journal.CoreCreated || journal.Status == "committed" || journal.Status == "applying" {
+		} else {
 			inconsistent = true
 		}
-		ownership := "preexisting"
 		if journal.CoreCreated {
-			ownership = "created_by_migration"
+			if coreStatus.Status == "rolled_back" {
+				if present {
+					inconsistent = true
+				}
+			} else if coreStatus.Status != "created" || (!present && (journal.Status == "committed" || journal.Status == "applying" || journal.Status == "rolled_back")) {
+				inconsistent = true
+			}
+		} else if coreStatus.Status != "not_created" || !present {
+			inconsistent = true
 		}
 		status.Resources = append(status.Resources, MigrationResource{
-			Kind: "core_user", ResourceID: journal.CoreUUID, Ownership: ownership, Present: present,
+			Kind: "core_user", ResourceID: journal.CoreUUID, Ownership: expectedOwnership, Present: present,
 		})
 	}
 

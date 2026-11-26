@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/lnb/HRPAuth-Yggdrasil-API/clients"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/config"
@@ -113,12 +114,21 @@ func (s *coordinatorMemoryResults) Delete(ctx context.Context, migrationID strin
 }
 
 type coordinatorCoreState struct {
-	mu           sync.Mutex
-	created      bool
-	claimCalls   int
-	verifyCalls  int
-	userMissing  bool
-	userMismatch bool
+	mu                    sync.Mutex
+	created               bool
+	coreCreated           bool
+	coreOwnership         string
+	coreStatus            string
+	coreEmail             string
+	claimCalls            int
+	verifyCalls           int
+	inspectMigrationCalls int
+	rollbackCalls         int
+	userMissing           bool
+	userMismatch          bool
+	migrationMissing      bool
+	rollbackFailureStatus int
+	loseRollbackResponse  bool
 }
 
 type coordinatorVerifier struct {
@@ -260,10 +270,18 @@ func setupMigrationCoordinator(t *testing.T) (*MigrationCoordinator, *coordinato
 			}
 			created := !state.created
 			state.created = true
+			state.coreCreated = created
+			state.coreOwnership = "preexisting"
+			state.coreStatus = "not_created"
+			if created {
+				state.coreOwnership = "created_by_migration"
+				state.coreStatus = "created"
+			}
 			email := "migration-" + coordinatorMigrationID + "@placeholder.invalid"
 			if body.Email != nil {
 				email = *body.Email
 			}
+			state.coreEmail = email
 			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": map[string]any{"uid": 7, "uuid": coordinatorCoreUUID, "email": email, "created": created}})
 		case "/internal/verify-credentials":
 			state.verifyCalls++
@@ -273,6 +291,48 @@ func setupMigrationCoordinator(t *testing.T) (*MigrationCoordinator, *coordinato
 				return
 			}
 			_ = json.NewEncoder(w).Encode(models.User{UID: 7, UUID: coordinatorCoreUUID, Email: "migration-" + coordinatorMigrationID + "@placeholder.invalid", Username: "Player"})
+		case "/internal/migrations/" + coordinatorMigrationID:
+			state.inspectMigrationCalls++
+			if state.migrationMissing {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"success":false,"code":"migration_not_found"}`))
+				return
+			}
+			username := "Player"
+			if state.userMismatch {
+				username = "Other"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": map[string]any{
+				"migration_id": coordinatorMigrationID, "status": state.coreStatus, "ownership": state.coreOwnership,
+				"user":       map[string]any{"uid": 7, "uuid": coordinatorCoreUUID, "email": state.coreEmail, "username": username, "present": !state.userMissing},
+				"updated_at": time.Now().UTC(),
+			}})
+		case "/internal/migrations/" + coordinatorMigrationID + "/rollback":
+			state.rollbackCalls++
+			if state.migrationMissing {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"success":false,"code":"migration_not_found"}`))
+				return
+			}
+			if state.rollbackFailureStatus != 0 {
+				w.WriteHeader(state.rollbackFailureStatus)
+				_, _ = w.Write([]byte(`{"success":false,"code":"internal_error"}`))
+				return
+			}
+			if state.coreOwnership != "created_by_migration" || state.userMismatch {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = w.Write([]byte(`{"success":false,"code":"migration_rollback_not_allowed"}`))
+				return
+			}
+			state.coreStatus = "rolled_back"
+			state.userMissing = true
+			if state.loseRollbackResponse {
+				state.loseRollbackResponse = false
+				panic(http.ErrAbortHandler)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": map[string]any{
+				"migration_id": coordinatorMigrationID, "status": "rolled_back", "uid": 7,
+			}})
 		case "/services/users/" + coordinatorCoreUUID:
 			if state.userMissing {
 				w.WriteHeader(http.StatusNotFound)
@@ -284,7 +344,7 @@ func setupMigrationCoordinator(t *testing.T) (*MigrationCoordinator, *coordinato
 				username = "Other"
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": map[string]any{
-				"uid": 7, "uuid": coordinatorCoreUUID, "email": "migration-" + coordinatorMigrationID + "@placeholder.invalid", "username": username,
+				"uid": 7, "uuid": coordinatorCoreUUID, "email": state.coreEmail, "username": username,
 			}})
 		default:
 			w.WriteHeader(http.StatusNotFound)

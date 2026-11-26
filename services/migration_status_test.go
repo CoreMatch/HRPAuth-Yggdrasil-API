@@ -75,8 +75,18 @@ func TestMigrationCoordinatorReconcileKeepsCommittedStatusOnDrift(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.Status != "committed" || status.LastError == nil || status.LastError.Code != "migration_reconcile_failed" {
+	if status.Status != "committed" || status.LastError == nil || status.LastError.Code != "migration_reconcile_failed" || status.Result != nil {
 		t.Fatalf("unexpected drift status: %+v", status)
+	}
+	state.mu.Lock()
+	state.userMismatch = false
+	state.mu.Unlock()
+	status, err = coordinator.Reconcile(context.Background(), coordinatorMigrationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Status != "committed" || status.LastError != nil || status.Result == nil {
+		t.Fatalf("committed drift was not cleared: %+v", status)
 	}
 }
 

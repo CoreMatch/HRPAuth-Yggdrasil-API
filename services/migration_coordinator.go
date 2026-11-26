@@ -327,7 +327,7 @@ func (c *MigrationCoordinator) replayCommitted(
 }
 
 func (c *MigrationCoordinator) cachedResultMatchesJournal(result MigrationCommitResult, journal *models.MigrationJournal) bool {
-	return result.MigrationID == journal.MigrationID && result.Status == "committed" &&
+	return journal.FailureCode == "" && result.MigrationID == journal.MigrationID && result.Status == "committed" &&
 		result.CoreUID == journal.CoreUID && result.ProfileID == journal.ProfileID &&
 		journal.AccountID != nil && result.AccountID == int64(*journal.AccountID) &&
 		result.CreatedCoreUser == journal.CoreCreated && result.ReusedCoreUser != journal.CoreCreated

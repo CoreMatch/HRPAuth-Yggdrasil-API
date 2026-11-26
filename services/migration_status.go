@@ -72,9 +72,13 @@ func (c *MigrationCoordinator) reconcileLocked(ctx context.Context, migrationID 
 	if inconsistent || originalStatus == "applying" {
 		journal.FailureCode = "migration_reconcile_failed"
 	}
+	previousFailureCode := journal.FailureCode
+	if originalStatus == "committed" && !inconsistent {
+		journal.FailureCode = ""
+	}
 	status.Status = journal.Status
 
-	changed := originalStatus != journal.Status || inconsistent
+	changed := originalStatus != journal.Status || inconsistent || previousFailureCode != journal.FailureCode
 	if changed {
 		now := time.Now().UTC()
 		updates := map[string]interface{}{
@@ -105,7 +109,7 @@ func (c *MigrationCoordinator) reconcileLocked(ctx context.Context, migrationID 
 			Code: code, Message: "Migration resources require reconciliation", Stage: "reconcile",
 		}
 	}
-	if journal.Status == "committed" {
+	if journal.Status == "committed" && !inconsistent {
 		if result, err := c.results.Load(ctx, migrationID); err == nil && c.cachedResultMatchesJournal(result, &journal) {
 			status.Result = &result
 		}

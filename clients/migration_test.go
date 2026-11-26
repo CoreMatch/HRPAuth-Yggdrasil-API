@@ -110,6 +110,37 @@ func TestClaimMigrationUserHonorsContext(t *testing.T) {
 	}
 }
 
+func TestVerifyCredentialsContextReturnsCoreIdentity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/internal/verify-credentials" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"uid":9,"uuid":"0123456789abcdef0123456789abcdef","email":"player@example.com","username":"Player"}`))
+	}))
+	defer server.Close()
+	client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+	user, err := client.VerifyCredentialsContext(context.Background(), "Player", "secret-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.UID != 9 || user.UUID != "0123456789abcdef0123456789abcdef" || user.Username != "Player" {
+		t.Fatalf("unexpected user: %+v", user)
+	}
+}
+
+func TestVerifyCredentialsContextHonorsCancellation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+	client := &CoreClient{BaseURL: server.URL, HTTPClient: server.Client()}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := client.VerifyCredentialsContext(ctx, "Player", "secret-password"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context cancellation", err)
+	}
+}
+
 func TestResolveTokenContextServiceScopes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Content-Type"), "application/json") {

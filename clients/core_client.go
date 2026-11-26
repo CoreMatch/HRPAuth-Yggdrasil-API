@@ -112,13 +112,16 @@ func (c *CoreClient) doRequestContextWithCode(ctx context.Context, method, path 
 }
 
 func (c *CoreClient) VerifyCredentials(identifier, password string) (*models.User, error) {
+	return c.VerifyCredentialsContext(context.Background(), identifier, password)
+}
+
+func (c *CoreClient) VerifyCredentialsContext(ctx context.Context, identifier, password string) (*models.User, error) {
 	var user models.User
 	body := map[string]string{
 		"identifier": identifier,
 		"password":   password,
 	}
-	err := c.doRequest("POST", "/internal/verify-credentials", body, &user)
-	if err != nil {
+	if err := c.doRequestContext(ctx, "POST", "/internal/verify-credentials", body, &user); err != nil {
 		return nil, err
 	}
 	return &user, nil

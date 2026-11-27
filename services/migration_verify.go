@@ -105,7 +105,7 @@ func verifyMigrationAssets(request MigrationCommitRequest, verifier MigrationVer
 		if existed {
 			status = "unchanged"
 		}
-		result := MigrationAssetResult{Status: status, SHA256: hash}
+		result := MigrationAssetResult{Status: status, SHA256: asset.data.PixelSHA256}
 		if asset.kind == "skin" {
 			verified.Results.Skin = result
 		} else {

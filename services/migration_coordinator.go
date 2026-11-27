@@ -215,7 +215,7 @@ func (c *MigrationCoordinator) verifyCoreCredentials(ctx context.Context, journa
 	if expectedEmail == "" {
 		expectedEmail = "migration-" + request.Metadata.MigrationID + "@placeholder.invalid"
 	}
-	if user.UID == 0 || strconv.FormatUint(uint64(user.UID), 10) != journal.CoreUID || user.UUID != journal.CoreUUID || user.Username != request.Metadata.Username || user.Email != expectedEmail {
+	if user.UUID == "" || user.UUID != journal.CoreUUID || user.UID != 0 && strconv.FormatUint(uint64(user.UID), 10) != journal.CoreUID || user.Username != request.Metadata.Username || user.Email != expectedEmail {
 		return migrationError("migration_credential_conflict", "verify", errors.New("Core identity does not match migration ownership"))
 	}
 	var account models.Account

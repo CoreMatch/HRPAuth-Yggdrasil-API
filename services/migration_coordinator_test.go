@@ -290,7 +290,7 @@ func setupMigrationCoordinator(t *testing.T) (*MigrationCoordinator, *coordinato
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(models.User{UID: 7, UUID: coordinatorCoreUUID, Email: "migration-" + coordinatorMigrationID + "@placeholder.invalid", Username: "Player"})
+			_ = json.NewEncoder(w).Encode(map[string]any{"UUID": coordinatorCoreUUID, "Email": "migration-" + coordinatorMigrationID + "@placeholder.invalid", "Username": "Player"})
 		case "/internal/migrations/" + coordinatorMigrationID:
 			state.inspectMigrationCalls++
 			if state.migrationMissing {
@@ -416,7 +416,7 @@ func TestMigrationCoordinatorCommitReplayAndFreshSession(t *testing.T) {
 	if result.MigrationID != coordinatorMigrationID || result.CoreUID != "7" || result.ProfileID != coordinatorProfileID || result.User.ID != coordinatorProfileID || !result.CreatedCoreUser || result.ReusedCoreUser {
 		t.Fatalf("unexpected result: %+v", result)
 	}
-	if result.Assets.Skin.Status != "uploaded" || result.Assets.Cape.Status != "uploaded" || len(result.User.Properties) != 3 {
+	if result.Assets.Skin.Status != "uploaded" || result.Assets.Skin.SHA256 != request.Skin.PixelSHA256 || result.Assets.Cape.Status != "uploaded" || result.Assets.Cape.SHA256 != request.Cape.PixelSHA256 || len(result.User.Properties) != 3 {
 		t.Fatalf("unexpected assets or properties: %+v", result)
 	}
 	var account models.Account

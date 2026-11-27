@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/lnb/HRPAuth-Yggdrasil-API/database"
 	"github.com/lnb/HRPAuth-Yggdrasil-API/models"
@@ -34,6 +35,26 @@ func TestMigrationCoordinatorReconcileCommittedInventory(t *testing.T) {
 	verifier.mu.Unlock()
 	if claimCalls != 1 || applyCalls != 2 {
 		t.Fatalf("reconcile mutated resources: claims=%d applies=%d", claimCalls, applyCalls)
+	}
+}
+
+func TestMigrationCoordinatorReconcileIgnoresLoginActivity(t *testing.T) {
+	coordinator, _, _, _, _, _ := setupMigrationCoordinator(t)
+	if _, err := coordinator.Commit(context.Background(), coordinatorRequest(t, true)); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.DB.Model(&models.Account{}).Where("core_user_id = ?", coordinatorCoreUUID).Update("last_sign_at", time.Now()).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.DB.Model(&models.MigrationJournal{}).Where("migration_id = ?", coordinatorMigrationID).Update("failure_code", "migration_reconcile_failed").Error; err != nil {
+		t.Fatal(err)
+	}
+	status, err := coordinator.Reconcile(context.Background(), coordinatorMigrationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Status != "committed" || status.LastError != nil || status.Result == nil {
+		t.Fatalf("login activity blocked committed reconciliation: %+v", status)
 	}
 }
 

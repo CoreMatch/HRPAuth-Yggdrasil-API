@@ -251,9 +251,10 @@ func verifyOwnedMigrationProperties(db *gorm.DB, request MigrationCommitRequest)
 }
 
 func migrationAccountUnmodified(account models.Account, coreUUID string) bool {
+	// Successful authentication refreshes last_sign_at without changing migration ownership.
 	return account.CoreUserID != nil && *account.CoreUserID == coreUUID && account.Password == "" &&
 		!account.SkinSync && !account.MBE && account.CBH && account.MojangUUID == nil &&
-		account.SkinSyncMark == nil && account.LastSignAt == nil
+		account.SkinSyncMark == nil
 }
 
 func (c *MigrationCoordinator) compensateLocalResources(ctx context.Context, journal *models.MigrationJournal, request MigrationCommitRequest) error {
